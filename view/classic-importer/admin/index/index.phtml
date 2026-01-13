@@ -1,0 +1,16 @@
+<?php
+$form->prepare();
+$escapeHtml = $this->plugin('escapeHtml');
+?>
+
+<?php echo $this->pageTitle($this->translate('Load from a dump file'), 1, $this->translate('Omeka-S Classic Importer')); ?>
+
+<?php echo $this->form()->openTag($form); ?>
+<?php echo $this->formCollection($form, false); ?>
+
+<!-- <fieldset id='page-actions'> -->
+    <button type="submit"><?php echo $this->translate('Next'); ?></button>
+<!-- </fieldset> -->
+
+<?php echo $this->form()->closeTag($form); ?>
+
