@@ -7,6 +7,7 @@ use Laminas\View\Model\ViewModel;
 use Omeka\Stdlib\Message;
 use Omeka\Service\Exception\ConfigException;
 use ClassicImporter\Form\ImportForm;
+use ClassicImporter\Form\MappingForm;
 use RuntimeException;
 
 class IndexController extends AbstractActionController
@@ -71,36 +72,89 @@ class IndexController extends AbstractActionController
 
         $sql =
             <<<'SQL'
-            SELECT vocabulary.prefix, property.local_name, property.id FROM value
-                LEFT JOIN property ON property.id = value.property_id
-                LEFT JOIN vocabulary ON vocabulary.id = property.vocabulary_id;
+            SELECT DISTINCT
+                element_sets.name AS element_set_name,
+                elements.name AS element_name,
+                elements.id AS element_id
+            FROM element_texts
+                LEFT JOIN elements ON elements.id = element_texts.element_id
+                LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
             SQL;
 
         $stmt = $dumpManager->getConn()->executeQuery($sql);
-        $rows = $stmt->fetchAllAssociative();
+        $properties = $stmt->fetchAllAssociative();
 
-        var_dump($rows);
+        $sql =
+            <<<'SQL'
+            SELECT * FROM item_types;
+            SQL;
 
-        /*$sql_content = $source->getRows(0);
-        if (empty($sql_content)) {
-            $message = $source->getErrorMessage() ?: 'The file has no headers.'; // @translate
-            $this->messenger()->addError($message);
-            return $this->redirect()->toRoute('admin/csvimport');
-        }
+        $stmt = $dumpManager->getConn()->executeQuery($sql);
+        $resourceClasses = $stmt->fetchAllAssociative();
 
-        $importForm = $this->getForm(MappingForm::class);
+        $form = $this->getForm(MappingForm::class);
+        $form->addPropertyMappings($properties);
+        $form->addResourceClassMappings($resourceClasses);
 
-        $importName = $data['import_name'];
-
-        $view->setVariable('form', $importForm);
-        $view->setVariable('sqlFilePath', $sqlFilePath);
-        $view->setVariable('importName', $importName);*/
+        $view->setVariable('form', $form);
+        $view->setVariable('resourceClasses', $resourceClasses);
+        $view->setVariable('properties', $properties);
 
         return $view; // return $view;
     }
 
     public function mapAction()
     {
+        $view = new ViewModel;
 
+        $dumpManager = $this->serviceLocator->get('ClassicImporter\DumpManager');
+
+        $request = $this->getRequest();
+
+        if (!$request->isPost()) {
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $post = $request->getPost()->toArray();
+
+        if (empty($dumpManager))
+        {
+            $this->messenger()->addError('Could not find Dump Manager service.');
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $sql =
+            <<<'SQL'
+            SELECT DISTINCT
+                element_sets.name AS element_set_name,
+                elements.name AS element_name,
+                elements.id AS element_id
+            FROM element_texts
+                LEFT JOIN elements ON elements.id = element_texts.element_id
+                LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
+            SQL;
+
+        $stmt = $dumpManager->getConn()->executeQuery($sql);
+        $properties = $stmt->fetchAllAssociative();
+
+        $sql =
+            <<<'SQL'
+            SELECT * FROM item_types;
+            SQL;
+
+        $stmt = $dumpManager->getConn()->executeQuery($sql);
+        $resourceClasses = $stmt->fetchAllAssociative();
+
+        $form = $this->getForm(MappingForm::class);
+        $form->addPropertyMappings($properties);
+        $form->addResourceClassMappings($resourceClasses);
+        $form->setData($post);
+        if (!$form->isValid()) {
+            $this->messenger()->addFormErrors($form);
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $this->messenger()->addSuccess('Dump import job successfully started.');
+        return $this->redirect()->toRoute('admin/classicimporter');
     }
 }

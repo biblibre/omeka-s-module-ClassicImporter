@@ -84,6 +84,17 @@ return [
                                     ],
                                 ],
                             ],
+                            'map' => [
+                                'type' => 'Literal',
+                                'options' => [
+                                    'route' => '/map',
+                                    'defaults' => [
+                                        '__NAMESPACE__' => 'ClassicImporter\Controller\Admin',
+                                        'controller' => 'Index',
+                                        'action' => 'map',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],

@@ -3,13 +3,15 @@
 namespace ClassicImporter\Form;
 
 use Laminas\Form\Form;
+use Omeka\Form\Element\PropertySelect;
+use Omeka\Form\Element\ResourceClassSelect;
 use ClassicImporter\Form\Element\OptionalCheckbox;
 
 class MappingForm extends Form
 {
     public function init()
     {
-        $this->setAttribute('action', 'classicimporter/import');
+        $this->setAttribute('action', 'map');
         $this->setAttribute('method', 'post');
         
         $this->add([
@@ -21,53 +23,45 @@ class MappingForm extends Form
         ]);
 
         $this->add([
-            'name' => 'source',
-            'type' => 'text',
+            'name' => 'update',
+            'type' => OptionalCheckbox::class,
             'options' => [
-                'label' => 'File path to the dump', //@translate
-            ],
-            'attributes' => [
-                'required' => true,
+                'label' => 'Update a past import corresponding to this one?', //@translate
             ],
         ]);
+    }
 
-        $this->add([
-            'name' => 'db_host',
-            'type' => 'text',
-            'options' => [
-                'label' => 'Database host name',
-                'info' => 'Database host name to safely temporarily receive dump. New DB will be safely created for that.',
-            ],
-            'attributes' => [
-                'placeholder' => 'localhost',
-                'required' => true,
-            ],
-        ]);
+    public function addPropertyMappings($properties)
+    {
+        foreach ($properties as $property) {
+            $this->add([
+                'name' => 'elements_properties[' . $property['element_id'] . ']',
+                'type' => PropertySelect::class,
+                'options' => [
+                    'empty_option' => 'Do not import', // @translate
+                    'label' => 'Mapping of element ' . $property['element_set_name'] . ' ' . $property['element_name'],
+                ],
+                'attributes' => [
+                    'required' => false,
+                ],
+            ]);
+        }
+    }
 
-        $this->add([
-            'name' => 'db_admin',
-            'type' => 'text',
-            'options' => [
-                'label' => 'Database admin username',
-                'info' => 'Database host name to safely temporarily receive dump. New DB will be safely created for that.',
-            ],
-            'attributes' => [
-                'placeholder' => 'omekas',
-                'required' => true,
-            ],
-        ]);
-
-        $this->add([
-            'name' => 'db_psk',
-            'type' => 'password',
-            'options' => [
-                'label' => 'Database admin password',
-                'info' => 'Database admin password to be used to use the DB to safely receive the dump.',
-            ],
-            'attributes' => [
-                'placeholder' => 'omekas',
-                'required' => true,
-            ],
-        ]);
+    public function addResourceClassMappings($resourceClasses)
+    {
+        foreach ($resourceClasses as $resourceClass) {
+            $this->add([
+                'name' => 'types_classes[' . $resourceClass['id'] . ']',
+                'type' => ResourceClassSelect::class,
+                'options' => [
+                    'empty_option' => 'Do not import', // @translate
+                    'label' => 'Mapping of class ' . $resourceClass['name'],
+                ],
+                'attributes' => [
+                    'required' => false,
+                ],
+            ]);
+        }
     }
 }
