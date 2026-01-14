@@ -7,7 +7,7 @@ use Omeka\Api\Request;
 use Omeka\Entity\EntityInterface;
 use Omeka\Stdlib\ErrorStore;
 use ClassicImporter\Api\Representation\TempDBRepresentation;
-use ClassicImporter\Entity\ClassicImporterTempDBEntity;
+use ClassicImporter\Entity\ClassicImporterTempDB;
 
 class TempDBAdapter extends AbstractEntityAdapter
 {
@@ -18,7 +18,7 @@ class TempDBAdapter extends AbstractEntityAdapter
 
     public function getEntityClass()
     {
-        return ClassicImporterTempDBEntity::class;
+        return ClassicImporterTempDB::class;
     }
 
     public function getRepresentationClass()
