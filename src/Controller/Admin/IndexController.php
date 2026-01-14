@@ -186,7 +186,10 @@ class IndexController extends AbstractActionController
             $propertyValues = $stmt->fetchAllAssociative();
 
             $itemSetData = [
-                // collections don't have classes in Omeka
+                // collections don't have classes in Omeka so don't try to map any
+                'o:resource_class' => [ 'o:id' => '' ],
+                'o:resource_template' => [ 'o:id' => '' ],
+                'o:owner' => [ 'o:id' => '' ],
                 'o:is_open' => '1', // @TODO check if this is column 'featured'
                 'o:is_public' => $itemSet['public'],
             ];
@@ -195,7 +198,9 @@ class IndexController extends AbstractActionController
                 // only if the property is mapped
                 if (isset($formData['elements_properties'][$property['element_id']]))
                 {
-                    $itemSetData[$property['name']] = [ //for each of the values
+                    $propertyId = $formData['elements_properties'][$property['element_id']];
+                    $term = $this->serviceLocator->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
+                    $itemSetData[$term] = [ //for each of the values
                         'property_id' => $formData['elements_properties'][$property['element_id']],
                         'type' => 'literal',
                         'is_public' => '1',
@@ -206,6 +211,7 @@ class IndexController extends AbstractActionController
                 }
             }
 
+            var_dump($itemSetData);
             $response = $this->serviceLocator->get('Omeka\ApiManager')->create('item_sets', $itemSetData)->getContent();
             var_dump($response);
             // @TODO : get the id of the created item_set to push it into a mapping table
@@ -252,14 +258,16 @@ class IndexController extends AbstractActionController
             }
 
             if ($formData['import_collections'] == '1') {
-                $itemData['o:item_set'] = null; // @TODO
+                $itemData['o:item_set'] = []; // @TODO
             }
 
             foreach ($propertyValues as $property) {
                 // only if the property is mapped
                 if (isset($formData['elements_properties'][$property['element_id']]))
                 {
-                    $itemData[$property['name']] = [ //for each of the values
+                    $propertyId = $formData['elements_properties'][$property['element_id']];
+                    $term = $this->serviceLocator->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
+                    $itemData[$term] = [ //for each of the values
                         'property_id' => $formData['elements_properties'][$property['element_id']],
                         'type' => 'literal',
                         'is_public' => '1',
