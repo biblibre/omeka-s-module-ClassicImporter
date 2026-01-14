@@ -5,18 +5,12 @@ namespace ClassicImporter\Controller\Admin;
 use Laminas\Mvc\Controller\AbstractActionController;
 use Laminas\View\Model\ViewModel;
 use Omeka\Stdlib\Message;
-use Omeka\Service\Exception\ConfigException;
 use ClassicImporter\Form\ImportForm;
 use ClassicImporter\Form\MappingForm;
 use RuntimeException;
 
 class IndexController extends AbstractActionController
 {
-
-    /**
-     * @var string
-     */
-
     protected $serviceLocator;
 
     public function __construct($serviceLocator)
@@ -154,7 +148,132 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
-        $this->messenger()->addSuccess('Dump import job successfully started.');
+        $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses, $post);
+        
         return $this->redirect()->toRoute('admin/classicimporter');
+    }
+
+    public function importResourcesFromDump($dumpConn, $properties, $resourceClasses, $formData)
+    {
+        if ($formData['import_collections'] == '1')
+            $this->importItemSetsFromDump($dumpConn, $properties, $resourceClasses, $formData);
+
+        $this->importItemsFromDump($dumpConn, $properties, $resourceClasses, $formData);
+    }
+
+    public function importItemSetsFromDump($dumpConn, $properties, $resourceClasses, $formData)
+    {
+        $sql =
+            <<<'SQL'
+            SELECT * FROM collections;
+            SQL;
+
+        $stmt = $dumpConn->executeQuery($sql);
+        $itemSets = $stmt->fetchAllAssociative();
+        
+        foreach ($itemSets as $itemSet) {
+            $sql = sprintf(
+            <<<'SQL'
+            SELECT element_texts.element_id, element_texts.text, elements.name FROM collections
+                LEFT JOIN element_texts AS element_texts ON element_texts.record_id = collections.id
+                LEFT JOIN elements AS elements ON elements.id = element_texts.element_id
+                WHERE element_texts.record_type = 'Collection'
+                AND collections.id = %s;
+            SQL, $itemSet['id']
+            );
+
+            $stmt = $dumpConn->executeQuery($sql);
+            $propertyValues = $stmt->fetchAllAssociative();
+
+            $itemSetData = [
+                // collections don't have classes in Omeka
+                'o:is_open' => '1', // @TODO check if this is column 'featured'
+                'o:is_public' => $itemSet['public'],
+            ];
+
+            foreach ($propertyValues as $property) {
+                // only if the property is mapped
+                if (isset($formData['elements_properties'][$property['element_id']]))
+                {
+                    $itemSetData[$property['name']] = [ //for each of the values
+                        'property_id' => $formData['elements_properties'][$property['element_id']],
+                        'type' => 'literal',
+                        'is_public' => '1',
+                        '@annotation' => null,
+                        '@language' => null,
+                        '@value' => $property['text'],
+                    ];
+                }
+            }
+
+            $response = $this->serviceLocator->get('Omeka\ApiManager')->create('item_sets', $itemSetData)->getContent();
+            var_dump($response);
+            // @TODO : get the id of the created item_set to push it into a mapping table
+        }
+        $this->messenger()->addSuccess('Item sets successfully imported.');
+    }
+
+    public function importItemsFromDump($dumpConn, $properties, $resourceClasses, $formData)
+    {
+        $sql =
+            <<<'SQL'
+            SELECT * FROM items;
+            SQL;
+
+        $stmt = $dumpConn->executeQuery($sql);
+        $items = $stmt->fetchAllAssociative();
+        
+        foreach ($items as $item) {
+            $sql = sprintf(
+            <<<'SQL'
+            SELECT element_texts.element_id, element_texts.text, elements.name FROM items
+                LEFT JOIN element_texts AS element_texts ON element_texts.record_id = items.id
+                LEFT JOIN elements AS elements ON elements.id = element_texts.element_id
+                WHERE element_texts.record_type = 'Item'
+                AND item.id = %s;
+            SQL, $item['id']
+            );
+
+            $stmt = $dumpConn->executeQuery($sql);
+            $propertyValues = $stmt->fetchAllAssociative();
+
+            $itemData = [
+                 // @TODO check if this is column 'featured'
+                'o:is_public' => $item['public'],
+
+                // important so API doesn't add one automatically
+                'o:site' => [],
+
+            ];
+
+            if (isset($formData['types_classes'][$item['item_type_id']]))
+            {
+                $itemData['o:resource_class'] = [ 'o:id' => $formData['types_classes'][$item['item_type_id']] ];
+            }
+
+            if ($formData['import_collections'] == '1') {
+                $itemData['o:item_set'] = null; // @TODO
+            }
+
+            foreach ($propertyValues as $property) {
+                // only if the property is mapped
+                if (isset($formData['elements_properties'][$property['element_id']]))
+                {
+                    $itemData[$property['name']] = [ //for each of the values
+                        'property_id' => $formData['elements_properties'][$property['element_id']],
+                        'type' => 'literal',
+                        'is_public' => '1',
+                        '@annotation' => null,
+                        '@language' => null,
+                        '@value' => $property['text'],
+                    ];
+                }
+            }
+
+            $response = $this->serviceLocator->get('Omeka\ApiManager')->create('items', $itemData)->getContent();
+            var_dump($response);
+            // @TODO : get the id of the created item to push it into a mapping table
+        }
+        $this->messenger()->addSuccess('Items successfully imported.');
     }
 }
