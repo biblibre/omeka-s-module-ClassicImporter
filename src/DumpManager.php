@@ -2,11 +2,6 @@
 
 namespace ClassicImporter;
 
-use JsonSerializable;
-use Laminas\Http\Client as HttpClient;
-use Laminas\Http\Request;
-use Solr\Exception\BadCredentialsException;
-
 class DumpManager
 {
     // @var string $tempUser
@@ -31,6 +26,16 @@ class DumpManager
     public function __construct($serviceLocator)
     {
         $this->serviceLocator = $serviceLocator;
+
+        $tempdb = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_tempdb')->getContent();
+        if (!empty($tempdb)) {
+            $this->dumpConn = new \Doctrine\DBAL\Connection([
+                'dbname'   => $tempdb[0]->dbname(),
+                'user'     => $tempdb[0]->username(),
+                'password' => $tempdb[0]->password(),
+                'host'     => $tempdb[0]->host(),
+        ], $this->serviceLocator->get('Omeka\Connection')->getDriver());
+        }
     }
 
     /**
