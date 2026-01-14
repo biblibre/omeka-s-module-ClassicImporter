@@ -201,7 +201,7 @@ class IndexController extends AbstractActionController
                         'is_public' => '1',
                         '@annotation' => null,
                         '@language' => null,
-                        '@value' => $property['text'],
+                        '@value' => $property['text'], // @TODO handle case when property has "html" in Omeka
                     ];
                 }
             }
@@ -230,7 +230,7 @@ class IndexController extends AbstractActionController
                 LEFT JOIN element_texts AS element_texts ON element_texts.record_id = items.id
                 LEFT JOIN elements AS elements ON elements.id = element_texts.element_id
                 WHERE element_texts.record_type = 'Item'
-                AND item.id = %s;
+                AND items.id = %s;
             SQL, $item['id']
             );
 
@@ -265,7 +265,7 @@ class IndexController extends AbstractActionController
                         'is_public' => '1',
                         '@annotation' => null,
                         '@language' => null,
-                        '@value' => $property['text'],
+                        '@value' => $property['text'], // @TODO handle case when property has "html" in Omeka
                     ];
                 }
             }
