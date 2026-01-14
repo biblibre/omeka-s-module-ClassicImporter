@@ -6,6 +6,7 @@ $escapeHtml = $this->plugin('escapeHtml');
 <?php echo $this->pageTitle($this->translate('Map Omeka properties'), 1, $this->translate('Omeka-S Classic Importer')); ?>
 
 <?php echo $this->form()->openTag($form); ?>
+<?= $this->formRow($form->get('csrf')); ?>
 <?= $this->formRow($form->get('import_collections')); ?>
 <?= $this->formRow($form->get('update')); ?>
 

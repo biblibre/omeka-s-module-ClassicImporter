@@ -25,6 +25,7 @@ return [
     'form_elements' => [
         'invokables' => [
             'ClassicImporter\Form\ImportForm' => Form\ImportForm::class,
+            'ClassicImporter\Form\MappingForm' => Form\MappingForm::class,
             'ClassicImporter\Form\Element\OptionalCheckbox' => Form\Element\OptionalCheckbox::class,
         ],
         'factories' => [
