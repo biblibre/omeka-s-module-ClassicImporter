@@ -3,9 +3,9 @@
 namespace ClassicImporter\Form;
 
 use Laminas\Form\Form;
-use Omeka\Form\Element\PropertySelect;
-use Omeka\Form\Element\ResourceClassSelect;
 use ClassicImporter\Form\Element\OptionalCheckbox;
+use ClassicImporter\Form\Element\OptionalPropertySelect;
+use ClassicImporter\Form\Element\OptionalResourceClassSelect;
 
 class MappingForm extends Form
 {
@@ -36,7 +36,7 @@ class MappingForm extends Form
         foreach ($properties as $property) {
             $this->add([
                 'name' => 'elements_properties[' . $property['element_id'] . ']',
-                'type' => PropertySelect::class,
+                'type' => OptionalPropertySelect::class,
                 'options' => [
                     'empty_option' => 'Do not import', // @translate
                     'label' => 'Mapping of element ' . $property['element_set_name'] . ' ' . $property['element_name'],
@@ -53,7 +53,7 @@ class MappingForm extends Form
         foreach ($resourceClasses as $resourceClass) {
             $this->add([
                 'name' => 'types_classes[' . $resourceClass['id'] . ']',
-                'type' => ResourceClassSelect::class,
+                'type' => OptionalResourceClassSelect::class,
                 'options' => [
                     'empty_option' => 'Do not import', // @translate
                     'label' => 'Mapping of class ' . $resourceClass['name'],

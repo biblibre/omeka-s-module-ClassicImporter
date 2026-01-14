@@ -26,8 +26,10 @@ return [
         'invokables' => [
             'ClassicImporter\Form\ImportForm' => Form\ImportForm::class,
             'ClassicImporter\Form\Element\OptionalCheckbox' => Form\Element\OptionalCheckbox::class,
-            'ClassicImporter\Form\Element\OptionalResourceClassSelect' => Form\Element\OptionalResourceClassSelect::class,
-            'ClassicImporter\Form\Element\OptionalPropertySelect' => Form\Element\OptionalPropertySelect::class,
+        ],
+        'factories' => [
+            'ClassicImporter\Form\Element\OptionalResourceClassSelect' => Service\Form\Element\OptionalResourceClassSelectFactory::class,
+            'ClassicImporter\Form\Element\OptionalPropertySelect' => Service\Form\Element\OptionalPropertySelectFactory::class,
         ],
     ],
     'entity_manager' => [
