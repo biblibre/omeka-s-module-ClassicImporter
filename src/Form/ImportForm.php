@@ -16,9 +16,11 @@ class ImportForm extends Form
             'type' => 'text',
             'options' => [
                 'label' => 'File path to the dump', //@translate
+                'info' => 'The dump.sql file must be uploaded beforehand to the instance. Once done, write the path to the file.', // @translate
             ],
             'attributes' => [
                 'required' => true,
+                'placeholder' => '/home/omekas/dump.sql'
             ],
         ]);
 
@@ -27,10 +29,9 @@ class ImportForm extends Form
             'type' => 'text',
             'options' => [
                 'label' => 'Database admin username',
-                'info' => 'Database host name to safely temporarily receive dump. New DB will be safely created for that.',
+                'info' => 'Database admin username to create the new DB that will be used for dump. Dump will NOT be executed as admin, rather as a freshly created user with permissions only on the dump DB. Very safe! Do NOT USE \'root\'. It will not work. See ReadME for more info.', // @translate
             ],
             'attributes' => [
-                'placeholder' => 'omekas',
                 'required' => true,
             ],
         ]);
@@ -40,10 +41,8 @@ class ImportForm extends Form
             'type' => 'password',
             'options' => [
                 'label' => 'Database admin password',
-                'info' => 'Database admin password to be used to use the DB to safely receive the dump.',
             ],
             'attributes' => [
-                'placeholder' => 'omekas',
                 'required' => true,
             ],
         ]);
