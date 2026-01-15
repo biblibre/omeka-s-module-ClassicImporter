@@ -150,6 +150,8 @@ class IndexController extends AbstractActionController
 
         $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses, $post);
         
+        $dumpManager->deleteDumpDatabase();
+        
         return $this->redirect()->toRoute('admin/classicimporter');
     }
 
@@ -194,7 +196,7 @@ class IndexController extends AbstractActionController
 
             foreach ($propertyValues as $property) {
                 // only if the property is mapped
-                if (isset($formData['elements_properties'][$property['element_id']]))
+                if (!empty($formData['elements_properties'][$property['element_id']]))
                 {
                     $propertyId = $formData['elements_properties'][$property['element_id']];
                     $term = $this->serviceLocator->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
@@ -256,7 +258,7 @@ class IndexController extends AbstractActionController
 
             ];
 
-            if (isset($formData['types_classes'][$item['item_type_id']]))
+            if (!empty($formData['types_classes'][$item['item_type_id']]))
             {
                 $itemData['o:resource_class'] = [ 'o:id' => $formData['types_classes'][$item['item_type_id']] ];
             }
@@ -279,7 +281,7 @@ class IndexController extends AbstractActionController
 
             foreach ($propertyValues as $property) {
                 // only if the property is mapped
-                if (isset($formData['elements_properties'][$property['element_id']]))
+                if (!empty($formData['elements_properties'][$property['element_id']]))
                 {
                     $propertyId = $formData['elements_properties'][$property['element_id']];
                     $term = $this->serviceLocator->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
