@@ -336,6 +336,15 @@ class IndexController extends AbstractActionController
                     /* @var \Omeka\Api\Representation\ItemSetRepresentation $matchingItem */
                     $matchingItem = $matchingItems[0]->resource();
 
+                    // From [] to unset.
+                    // So that we just don't touch the item_sets when updating.
+                    // Normally, item_sets are [] when empty
+                    // but if we update witout importing item_sets, we don't want to update with [],
+                    // we want NOT to touch the item_sets, so we remove the key.
+                    if (empty($itemData['o:item_set'])) {
+                        unset($itemData['o:item_set']);
+                    }
+
                     $this->serviceLocator->get('Omeka\ApiManager')->update('items', $matchingItem->id(), 
                         $itemData, [], ['isPartial' => true]);
                 }
