@@ -44,6 +44,7 @@ return [
     'api_adapters' => [
         'invokables' => [
             'classicimporter_tempdb' => Api\Adapter\TempDBAdapter::class,
+            'classicimporter_resource_maps' => Api\Adapter\ResourceMapAdapter::class, 
         ],
     ],
     'service_manager' => [
