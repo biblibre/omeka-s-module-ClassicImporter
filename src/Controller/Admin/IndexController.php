@@ -192,7 +192,7 @@ class IndexController extends AbstractActionController
             $itemSetData = [
                 // collections don't have classes in Omeka so don't try to map any
                 // no owner to be set either
-                'o:is_open' => '0', // @TODO check if this is column 'featured'
+                // 'o:is_open' => '0', @TODO check if this is column 'featured'
                 'o:is_public' => strval($itemSet['public']),
             ];
 
@@ -213,16 +213,39 @@ class IndexController extends AbstractActionController
                 }
             }
 
-            /* @var \Omeka\Api\Representation\ItemSetRepresentation $response */
-            $response = $this->serviceLocator->get('Omeka\ApiManager')->create('item_sets', $itemSetData)->getContent();
-            
-            $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_resource_maps',
-                [
-                    'mapped_resource_name' => 'item_set',
-                    'resource_id' => $response->id(),
-                    'classic_resource_id' => $itemSet['id'],
-                ]
-            );
+            $couldUpdate = false;
+            if ($formData['update'] == '1') {
+                $matchingItemSets = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                    [
+                        'mapped_resource_name' => 'item_set',
+                        'classic_resource_id' => $itemSet['id'],
+                    ]
+                )->getContent();
+                if (!empty($matchingItemSets))
+                {
+                    $couldUpdate = true;
+
+                    /* @var \Omeka\Api\Representation\ItemSetRepresentation $matchingItemSet */
+                    $matchingItemSet = $matchingItemSets[0]->resource();
+
+                    $this->serviceLocator->get('Omeka\ApiManager')->update('item_sets', $matchingItemSet->id(), 
+                        $itemSetData, [], ['isPartial' => true]);
+                }
+            }
+
+            if (!$couldUpdate)
+            {
+                /* @var \Omeka\Api\Representation\ItemSetRepresentation $response */
+                $response = $this->serviceLocator->get('Omeka\ApiManager')->create('item_sets', $itemSetData)->getContent();
+                
+                $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_resource_maps',
+                    [
+                        'mapped_resource_name' => 'item_set',
+                        'resource_id' => $response->id(),
+                        'classic_resource_id' => $itemSet['id'],
+                    ]
+                );
+            }
         }
         $this->messenger()->addSuccess('Item sets successfully imported.');
     }
@@ -298,15 +321,38 @@ class IndexController extends AbstractActionController
                 }
             }
 
-            /* @var \Omeka\Api\Representation\ItemRepresentation $response */
-            $response = $this->serviceLocator->get('Omeka\ApiManager')->create('items', $itemData)->getContent();
-            $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_resource_maps',
-                [
-                    'mapped_resource_name' => 'item',
-                    'resource_id' => $response->id(),
-                    'classic_resource_id' => $item['id'],
-                ]
-            );
+            $couldUpdate = false;
+            if ($formData['update'] == '1') {
+                $matchingItems = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                    [
+                        'mapped_resource_name' => 'item',
+                        'classic_resource_id' => $item['id'],
+                    ]
+                )->getContent();
+                if (!empty($matchingItems))
+                {
+                    $couldUpdate = true;
+
+                    /* @var \Omeka\Api\Representation\ItemSetRepresentation $matchingItem */
+                    $matchingItem = $matchingItems[0]->resource();
+
+                    $this->serviceLocator->get('Omeka\ApiManager')->update('items', $matchingItem->id(), 
+                        $itemData, [], ['isPartial' => true]);
+                }
+            }
+
+            if (!$couldUpdate)
+            {
+                /* @var \Omeka\Api\Representation\ItemRepresentation $response */
+                $response = $this->serviceLocator->get('Omeka\ApiManager')->create('items', $itemData)->getContent();
+                $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_resource_maps',
+                    [
+                        'mapped_resource_name' => 'item',
+                        'resource_id' => $response->id(),
+                        'classic_resource_id' => $item['id'],
+                    ]
+                );
+            }
             
         }
         $this->messenger()->addSuccess('Items successfully imported.');
