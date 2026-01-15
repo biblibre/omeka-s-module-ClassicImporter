@@ -17,7 +17,7 @@ The module is not made to create the dump, the administrator needs to do it by t
 The dump then needs to be uploaded to the Omeka-S instance (anywhere Omeka-S can reach).
 The module also is not made to upload the dump to the Omeka-S instance. It needs to be done by an administrator beforehand.
 
-Lastly, if not already existing, a MySQL administrator user with all (*.*) permissions MUST be created beforehand.
+Lastly, if not already existing, a MySQL administrator user with all (\*.\*) permissions MUST be created beforehand.
 This user will be used by the module to create a new database to receive the dump.
 It is needed because the default user (omekas) does not have enough permissions to do that.
 DO NOT use 'root' user as it will not work. This user is special and cannot be used by PHP.
