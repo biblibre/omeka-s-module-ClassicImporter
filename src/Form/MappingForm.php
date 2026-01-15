@@ -38,6 +38,7 @@ class MappingForm extends Form
 
             if (!empty($api))
             {
+                // keep only alphanumeric characters
                 $propertyName = preg_replace("/[^a-zA-Z0-9 ]+/", "", strtolower($property['element_name']));
 
                 $nextShouldBeUpper = false;
@@ -52,8 +53,10 @@ class MappingForm extends Form
                         $nextShouldBeUpper = true;
                     }
                 }
+
+                // remove spaces
                 $propertyName = preg_replace('/\s+/', '', $propertyName);
-                
+
                 $omekasProperties = $api->search('properties',
                     ['local_name' => $propertyName]
                 )->getContent();
@@ -117,20 +120,49 @@ class MappingForm extends Form
         }
     }
 
-    public function addResourceClassMappings($resourceClasses)
+    public function addResourceClassMappings($resourceClasses, $api = null)
     {
         foreach ($resourceClasses as $resourceClass) {
-            $this->add([
-                'name' => 'types_classes[' . $resourceClass['id'] . ']',
-                'type' => OptionalResourceClassSelect::class,
-                'options' => [
-                    'empty_option' => 'Do not import', // @translate
-                    'label' => 'Mapping of class ' . $resourceClass['name'],
-                ],
-                'attributes' => [
-                    'required' => false,
-                ],
-            ]);
+            $defaultMapping = null;
+
+            if (!empty($api)) {
+                $className = preg_replace('/\s+/', '', $resourceClass['name']);
+                $omekasClasses = $api->search('resource_classes',
+                    ['local_name' => $className]
+                )->getContent();
+
+                if (!empty($omekasClasses) && count($omekasClasses) == 1) {
+                    $defaultMapping = $omekasClasses[0];
+                }
+            }
+
+            if (!empty($defaultMapping)) {
+                $this->add([
+                    'name' => 'types_classes[' . $resourceClass['id'] . ']',
+                    'type' => OptionalResourceClassSelect::class,
+                    'options' => [
+                        'empty_option' => 'Do not import', // @translate
+                        'label' => 'Mapping of class ' . $resourceClass['name'],
+                    ],
+                    'attributes' => [
+                        'required' => false,
+                        'value' => $defaultMapping->id(),
+                    ],
+                ]);
+            }
+            else {
+                $this->add([
+                    'name' => 'types_classes[' . $resourceClass['id'] . ']',
+                    'type' => OptionalResourceClassSelect::class,
+                    'options' => [
+                        'empty_option' => 'Do not import', // @translate
+                        'label' => 'Mapping of class ' . $resourceClass['name'],
+                    ],
+                    'attributes' => [
+                        'required' => false,
+                    ],
+                ]);
+            }
         }
     }
 }
