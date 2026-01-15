@@ -29,7 +29,7 @@ class IndexController extends AbstractActionController
         return $view;
     }
 
-    public function importAction()
+    public function mapAction()
     {
         $view = new ViewModel;
         $request = $this->getRequest();
@@ -80,7 +80,8 @@ class IndexController extends AbstractActionController
 
         $sql =
             <<<'SQL'
-            SELECT * FROM item_types;
+            SELECT item_types.id, item_types.name, item_types.description FROM items
+                INNER JOIN item_types ON items.item_type_id = item_types.id;
             SQL;
 
         $stmt = $dumpManager->getConn()->executeQuery($sql);
@@ -94,7 +95,7 @@ class IndexController extends AbstractActionController
         $view->setVariable('resourceClasses', $resourceClasses);
         $view->setVariable('properties', $properties);
 
-        return $view; // return $view;
+        return $view;
     }
 
     public function mapAction()
@@ -133,7 +134,8 @@ class IndexController extends AbstractActionController
 
         $sql =
             <<<'SQL'
-            SELECT * FROM item_types;
+            SELECT item_types.id, item_types.name, item_types.description FROM items
+                INNER JOIN item_types ON items.item_type_id = item_types.id;
             SQL;
 
         $stmt = $dumpManager->getConn()->executeQuery($sql);
