@@ -16,9 +16,13 @@ class ClassicImporterResourceMap extends AbstractEntity
     protected $id;
 
     /**
-     * @OneToOne(
-     *     targetEntity="\Omeka\Entity\Resource",
-     *     orphanRemoval=true,
+     * @ManyToOne(
+     *     targetEntity="Omeka\Entity\Resource",
+     *     inversedBy=null
+     * )
+     * @JoinColumn(
+     *     onDelete="CASCADE",
+     *     nullable=false
      * )
      */
     protected $resource;

@@ -26,15 +26,18 @@ CREATE TABLE classic_importer_temp_db (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
 CREATE TABLE classic_importer_resource_map (
     id INT AUTO_INCREMENT NOT NULL,
-    resource_id INT DEFAULT NULL,
+    resource_id INT NOT NULL,
     classic_resource_id INT NOT NULL,
     mapped_resource_name VARCHAR(255) NOT NULL,
-    UNIQUE INDEX UNIQ_10D9435789329D25 (resource_id),
+    INDEX IDX_10D9435789329D25 (resource_id),
     PRIMARY KEY(id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
 ALTER TABLE classic_importer_resource_map
     ADD CONSTRAINT FK_10D9435789329D25
-    FOREIGN KEY (resource_id) REFERENCES resource (id);
+        FOREIGN KEY (resource_id)
+        REFERENCES resource (id)
+        ON DELETE CASCADE
+;
 SQL;
         $sqls = array_filter(array_map('trim', explode(';', $sql)));
         foreach ($sqls as $sql) {

@@ -30,13 +30,13 @@ class ResourceMapAdapter extends AbstractEntityAdapter
     {
         if (isset($query['mapped_resource_name'])) {
             $qb->andWhere($qb->expr()->eq(
-                'omeka_root.mapped_resource_name',
+                'omeka_root.mappedResourceName',
                 $this->createNamedParameter($qb, $query['mapped_resource_name']))
             );
         }
         if (isset($query['classic_resource_id'])) {
             $qb->andWhere($qb->expr()->eq(
-                'omeka_root.classic_resource_id',
+                'omeka_root.classicResourceId',
                 $this->createNamedParameter($qb, $query['classic_resource_id']))
             );
         }
@@ -46,17 +46,37 @@ class ResourceMapAdapter extends AbstractEntityAdapter
         ErrorStore $errorStore
     ) {
         $data = $request->getContent();
-        if (isset($data['resource_id'])) {
-            $entity->setResource($data['resource_id']);
-        }
 
         if (isset($data['mapped_resource_name'])) {
             $entity->setMappedResourceName($data['mapped_resource_name']);
+
+            if (isset($data['resource_id'])) {
+                $adapterName = '';
+                switch ($data['mapped_resource_name']) {
+                    case 'item':
+                        $adapterName = 'items';
+                        break;
+                    case 'item_set':
+                        $adapterName = 'item_sets';
+                        break;
+                    case 'media':
+                        $adapterName = 'media';
+                        break;
+                    default:
+                        return null;
+                }
+
+                $resource = $this->getAdapter($adapterName)
+                    ->findEntity($data['resource_id']);
+
+                $entity->setResource($resource);
+            }
         }
 
         if (isset($data['classic_resource_id'])) {
             $entity->setClassicResourceId($data['classic_resource_id']);
         }
         // @TODO invalidate hydration if one of fields is missing?
+        // @TODO invalidate hydration if resource_name is wrong?
     }
 }
