@@ -5,10 +5,11 @@ use Omeka\Api\Representation\AbstractEntityRepresentation;
 
 class TempDBRepresentation extends AbstractEntityRepresentation
 {
+    /* No controller needed
     public function getControllerName()
     {
         return 'tempdb';
-    }
+    }*/
 
     public function getJsonLd()
     {
@@ -45,6 +46,7 @@ class TempDBRepresentation extends AbstractEntityRepresentation
         return $this->resource->getDbname();
     }
 
+    /* no admin url needed
     public function adminUrl($action = null, $canonical = false)
     {
         $url = $this->getViewHelper('Url');
@@ -57,5 +59,5 @@ class TempDBRepresentation extends AbstractEntityRepresentation
             ],
             ['force_canonical' => $canonical]
         );
-    }
+    }*/
 }

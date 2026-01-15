@@ -28,7 +28,8 @@ class TempDBAdapter extends AbstractEntityAdapter
 
     public function buildQuery(QueryBuilder $qb, array $query)
     {
-        /*if (isset($query['job_id'])) {
+        /* Function is necessary but there can only be one tempdb so searching is useless
+        if (isset($query['job_id'])) {
             $qb->andWhere($qb->expr()->eq(
                 'omeka_root.job',
                 $this->createNamedParameter($qb, $query['job_id']))
@@ -73,5 +74,6 @@ class TempDBAdapter extends AbstractEntityAdapter
         if (isset($data['dbname'])) {
             $entity->setDbname($data['dbname']);
         }
+        // @TODO invalidate hydration if one of fields is missing?
     }
 }

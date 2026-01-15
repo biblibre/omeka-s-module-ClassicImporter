@@ -2,8 +2,6 @@
 namespace ClassicImporter\Entity;
 
 use Omeka\Entity\AbstractEntity;
-use Omeka\Entity\Job;
-use Omeka\Entity\Site;
 
 /**
  * @Entity
@@ -42,7 +40,7 @@ class ClassicImporterTempDB extends AbstractEntity
 
     public function getId()
     {
-        return $this->username;
+        return $this->id;
     }
 
     public function getUsername()
