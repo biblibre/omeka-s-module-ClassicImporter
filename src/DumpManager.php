@@ -102,6 +102,7 @@ class DumpManager
         exec($command, $output, $exitCode);
 
         if ($exitCode !== 0) {
+            $this->deleteDumpDatabase();
             throw new \RuntimeException(
                 "SQL dump import failed:\n" . implode("\n", $output)
             );
@@ -115,13 +116,24 @@ class DumpManager
         ], $this->serviceLocator->get('Omeka\Connection')->getDriver());
     }
 
-    public function getConn()
+    public function getConn(): \Doctrine\DBAL\Connection | null
     {
         return $this->dumpConn;
     }
 
     public function deleteDumpDatabase()
     {
-        // todo
+        $tempdb = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_tempdb')->getContent();
+        if (empty($tempdb))
+            return;
+
+        $sql = <<<'SQL'
+            DROP DATABASE IF EXISTS %s;
+        SQL;
+
+        $this->getConn()->executeQuery(sprintf($sql, $tempdb[0]->dbname()));
+        $this->serviceLocator->get('Omeka\ApiManager')->delete('classicimporter_tempdb', $tempdb[0]->id());
+
+        $this->dumpConn = null;
     }
 }

@@ -29,10 +29,14 @@ SQL;
 
     public function uninstall(ServiceLocatorInterface $serviceLocator)
     {
+        $dumpManager = $serviceLocator->get('ClassicImporter\DumpManager');
+        $dumpManager->deleteDumpDatabase();
+
         $connection = $serviceLocator->get('Omeka\Connection');
+
         $sql = <<<'SQL'
-        DROP TABLE IF EXISTS classic_importer_temp_db;
-        SQL;
+DROP TABLE IF EXISTS classic_importer_temp_db;
+SQL;
 
         $sqls = array_filter(array_map('trim', explode(';', $sql)));
         foreach ($sqls as $sql) {
