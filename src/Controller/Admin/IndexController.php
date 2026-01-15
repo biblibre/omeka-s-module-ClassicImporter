@@ -209,10 +209,16 @@ class IndexController extends AbstractActionController
                 }
             }
 
-            var_dump($itemSetData);
+            /* @var \Omeka\Api\Representation\ItemSetRepresentation $response */
             $response = $this->serviceLocator->get('Omeka\ApiManager')->create('item_sets', $itemSetData)->getContent();
-            var_dump($response);
-            // @TODO : get the id of the created item_set to push it into a mapping table
+            
+            $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_resource_maps',
+                [
+                    'mapped_resource_name' => 'item_set',
+                    'resource_id' => $response->id(),
+                    'classic_resource_id' => $itemSet['id'],
+                ]
+            );
         }
         $this->messenger()->addSuccess('Item sets successfully imported.');
     }
@@ -255,8 +261,20 @@ class IndexController extends AbstractActionController
                 $itemData['o:resource_class'] = [ 'o:id' => $formData['types_classes'][$item['item_type_id']] ];
             }
 
-            if ($formData['import_collections'] == '1') {
-                $itemData['o:item_set'] = []; // @TODO
+            if ($formData['import_collections'] == '1' && isset($item['collection_id'])) {
+
+                /* @var \Omeka\Api\Representation\ItemSetRepresentation[] | null $response*/
+                $response = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                    [
+                        'mapped_resource_name' => 'item_set',
+                        'resource_id' => $item['collection_id']
+                    ]
+                )->getContent();
+
+                if (!empty($response))
+                {
+                    $itemData['o:item_set'] = [ strval($response[0]->resource()->id()) ];
+                }
             }
 
             foreach ($propertyValues as $property) {
@@ -276,9 +294,16 @@ class IndexController extends AbstractActionController
                 }
             }
 
+            /* @var \Omeka\Api\Representation\ItemRepresentation $response */
             $response = $this->serviceLocator->get('Omeka\ApiManager')->create('items', $itemData)->getContent();
-            var_dump($response);
-            // @TODO : get the id of the created item to push it into a mapping table
+            $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_resource_maps',
+                [
+                    'mapped_resource_name' => 'item',
+                    'resource_id' => $response->id(),
+                    'classic_resource_id' => $item['id'],
+                ]
+            );
+            
         }
         $this->messenger()->addSuccess('Items successfully imported.');
     }
