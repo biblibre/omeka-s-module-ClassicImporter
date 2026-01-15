@@ -187,11 +187,9 @@ class IndexController extends AbstractActionController
 
             $itemSetData = [
                 // collections don't have classes in Omeka so don't try to map any
-                'o:resource_class' => [ 'o:id' => '' ],
-                'o:resource_template' => [ 'o:id' => '' ],
-                'o:owner' => [ 'o:id' => '' ],
-                'o:is_open' => '1', // @TODO check if this is column 'featured'
-                'o:is_public' => $itemSet['public'],
+                // no owner to be set either
+                'o:is_open' => '0', // @TODO check if this is column 'featured'
+                'o:is_public' => strval($itemSet['public']),
             ];
 
             foreach ($propertyValues as $property) {
@@ -200,12 +198,12 @@ class IndexController extends AbstractActionController
                 {
                     $propertyId = $formData['elements_properties'][$property['element_id']];
                     $term = $this->serviceLocator->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
-                    $itemSetData[$term] = [ //for each of the values
-                        'property_id' => $formData['elements_properties'][$property['element_id']],
+                    $itemSetData[$term][] = [ //for each of the values
+                        'property_id' => intval($formData['elements_properties'][$property['element_id']]),
                         'type' => 'literal',
                         'is_public' => '1',
                         '@annotation' => null,
-                        '@language' => null,
+                        '@language' => '',
                         '@value' => $property['text'], // @TODO handle case when property has "html" in Omeka
                     ];
                 }
@@ -245,7 +243,7 @@ class IndexController extends AbstractActionController
 
             $itemData = [
                  // @TODO check if this is column 'featured'
-                'o:is_public' => $item['public'],
+                'o:is_public' => strval($item['public']),
 
                 // important so API doesn't add one automatically
                 'o:site' => [],
@@ -267,12 +265,12 @@ class IndexController extends AbstractActionController
                 {
                     $propertyId = $formData['elements_properties'][$property['element_id']];
                     $term = $this->serviceLocator->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
-                    $itemData[$term] = [ //for each of the values
-                        'property_id' => $formData['elements_properties'][$property['element_id']],
+                    $itemData[$term][] = [ //for each of the values
+                        'property_id' => intval($formData['elements_properties'][$property['element_id']]),
                         'type' => 'literal',
                         'is_public' => '1',
                         '@annotation' => null,
-                        '@language' => null,
+                        '@language' => '',
                         '@value' => $property['text'], // @TODO handle case when property has "html" in Omeka
                     ];
                 }
