@@ -88,7 +88,7 @@ class IndexController extends AbstractActionController
         $resourceClasses = $stmt->fetchAllAssociative();
 
         $form = $this->getForm(MappingForm::class);
-        $form->addPropertyMappings($properties);
+        $form->addPropertyMappings($properties, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->addResourceClassMappings($resourceClasses);
 
         $view->setVariable('form', $form);
