@@ -8,7 +8,7 @@ class ImportForm extends Form
 {
     public function init()
     {
-        $this->setAttribute('action', 'classicimporter/import');
+        $this->setAttribute('action', 'classicimporter/map');
         $this->setAttribute('method', 'post');
 
         $this->add([

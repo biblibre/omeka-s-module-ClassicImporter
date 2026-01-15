@@ -11,7 +11,7 @@ class MappingForm extends Form
 {
     public function init()
     {
-        $this->setAttribute('action', 'map');
+        $this->setAttribute('action', 'import');
         $this->setAttribute('method', 'post');
         
         $this->add([

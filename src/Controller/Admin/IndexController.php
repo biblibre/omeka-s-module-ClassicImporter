@@ -98,7 +98,7 @@ class IndexController extends AbstractActionController
         return $view;
     }
 
-    public function mapAction()
+    public function importAction()
     {
         $view = new ViewModel;
 
