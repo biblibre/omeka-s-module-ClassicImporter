@@ -42,7 +42,7 @@ class DumpManager
      * Execute safely by creating a new tempuser a dump.
      * Only done once by controller
      */
-    public function createDumpDatabase(string $filepath, string $adminUser, string $adminPassword, string $host)
+    public function createDumpDatabase(string $filepath, string $adminUser, string $adminPassword)
     {
         if (!file_exists($filepath) || !filesize($filepath) || !is_readable($filepath)) {
             throw new \RuntimeException(sprintf('Failed to read file %s.', $filepath));
@@ -61,7 +61,8 @@ class DumpManager
         FLUSH PRIVILEGES;
         SQL;
         
-        $this->tempHost = $host;
+        // hardcoded because mysql command is executed locally anyways
+        $this->tempHost = 'localhost'; // @TODO make this a parameter
         $this->tempUsername = uniqid('classic_importer_user_');
         $this->tempPassword = uniqid();
         $this->tempDbName = uniqid('classic_importer_tempdb_');

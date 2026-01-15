@@ -12,36 +12,12 @@ class ImportForm extends Form
         $this->setAttribute('method', 'post');
 
         $this->add([
-            'name' => 'import_name',
-            'type' => 'text',
-            'options' => [
-                'label' => 'Import name', //@translate
-            ],
-            'attributes' => [
-                'required' => true,
-            ],
-        ]);
-
-        $this->add([
             'name' => 'source',
             'type' => 'text',
             'options' => [
                 'label' => 'File path to the dump', //@translate
             ],
             'attributes' => [
-                'required' => true,
-            ],
-        ]);
-
-        $this->add([
-            'name' => 'db_host',
-            'type' => 'text',
-            'options' => [
-                'label' => 'Database host name',
-                'info' => 'Database host name to safely temporarily receive dump. New DB will be safely created for that.',
-            ],
-            'attributes' => [
-                'placeholder' => 'localhost',
                 'required' => true,
             ],
         ]);

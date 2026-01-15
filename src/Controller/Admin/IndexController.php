@@ -58,7 +58,7 @@ class IndexController extends AbstractActionController
         }
 
         try {
-            $dumpManager->createDumpDatabase($sqlFilePath, $post['db_admin'], $post['db_psk'], $post['db_host']);
+            $dumpManager->createDumpDatabase($sqlFilePath, $post['db_admin'], $post['db_psk']);
         } catch (\RuntimeException $e) {
             $this->messenger()->addError(sprintf('Error creating dump database. %s', $e->getMessage()));
             return $this->redirect()->toRoute('admin/classicimporter');
