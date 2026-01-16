@@ -13,6 +13,11 @@ class MappingForm extends Form
     {
         $this->setAttribute('action', 'import');
         $this->setAttribute('method', 'post');
+
+        $this->add([
+            'name' => 'files_source',
+            'type' => 'hidden',
+        ]);
         
         $this->add([
             'name' => 'import_collections',
@@ -164,5 +169,9 @@ class MappingForm extends Form
                 ]);
             }
         }
+    }
+
+    public function setFilesSource($filesSource) {
+        $this->get('files_source')->setValue($filesSource);
     }
 }

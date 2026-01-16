@@ -25,6 +25,19 @@ class ImportForm extends Form
         ]);
 
         $this->add([
+            'name' => 'files_source',
+            'type' => 'text',
+            'options' => [
+                'label' => 'File path to the original media files', //@translate
+                'info' => 'The \'files\' file must be uploaded beforehand to the instance. It can be found in the Omeka instance in omeka/files/original. Once done, write the path to the directoy.', // @translate
+            ],
+            'attributes' => [
+                'required' => true,
+                'placeholder' => '/home/omekas/classic_files/original'
+            ],
+        ]);
+
+        $this->add([
             'name' => 'db_admin',
             'type' => 'text',
             'options' => [

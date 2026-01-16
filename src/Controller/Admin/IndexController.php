@@ -90,6 +90,7 @@ class IndexController extends AbstractActionController
         $form = $this->getForm(MappingForm::class);
         $form->addPropertyMappings($properties, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->addResourceClassMappings($resourceClasses, $this->serviceLocator->get('Omeka\ApiManager'));
+        $form->setFilesSource($post['files_source']);
 
         $view->setVariable('form', $form);
         $view->setVariable('resourceClasses', $resourceClasses);
@@ -144,10 +145,16 @@ class IndexController extends AbstractActionController
         $form = $this->getForm(MappingForm::class);
         $form->addPropertyMappings($properties);
         $form->addResourceClassMappings($resourceClasses);
+
         $form->setData($post);
         if (!$form->isValid()) {
             $this->messenger()->addFormErrors($form);
             return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $post['files_source'] = trim($post['files_source']);
+        if ($post['files_source'][strlen($post['files_source']) - 1] != '/') {
+            $post['files_source'] = $post['files_source'] . '/';
         }
 
         $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses, $post);
@@ -274,6 +281,17 @@ class IndexController extends AbstractActionController
             $stmt = $dumpConn->executeQuery($sql);
             $propertyValues = $stmt->fetchAllAssociative();
 
+            $sql = sprintf(
+            <<<'SQL'
+            SELECT files.id, files.mime_type, files.filename, files.original_filename, files.alt_text, files.size FROM files
+                WHERE files.stored = 1
+                AND files.item_id = %s;
+            SQL, $item['id']
+            ); // @TODO check what happens when files.stored is 0.
+
+            $stmt = $dumpConn->executeQuery($sql);
+            $files = $stmt->fetchAllAssociative();
+
             $itemData = [
                  // @TODO check if this is column 'featured'
                 'o:is_public' => strval($item['public']),
@@ -319,6 +337,23 @@ class IndexController extends AbstractActionController
                         '@value' => $property['text'], // @TODO handle case when property has "html" in Omeka
                     ];
                 }
+            }
+
+            // intialization just in case
+            if (!empty($files)) {
+                $itemData['o:media'] = [];
+            }
+
+            // @TODO check if Omeka can have a media without an item. Should we import them?
+            foreach ($files as $file) 
+            {
+                $itemData['o:media'][] = [
+                    'o:is_public' => '1',
+                    'o:ingester' => 'classicimporter_local',
+                    'original_file_action' => 'keep',
+                    'ingest_filename' => $formData['files_source'] . $file['filename'], 
+                    'original_filename' => $file['original_filename'],
+                ];
             }
 
             $couldUpdate = false;
