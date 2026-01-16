@@ -230,21 +230,25 @@ class ImportFromDumpJob extends AbstractJob
                 }
             }
 
-            // intialization just in case
-            if (!empty($files)) {
-                $itemData['o:media'] = [];
-            }
-
-            // @TODO check if Omeka can have a media without an item. Should we import them?
-            foreach ($files as $file) 
+            // importing media is optional
+            if (!empty($this->getArg('files_source')))
             {
-                $itemData['o:media'][] = [
-                    'o:is_public' => '1',
-                    'o:ingester' => 'classicimporter_local',
-                    'original_file_action' => 'keep',
-                    'ingest_filename' => $this->getArg('files_source') . $file['filename'], 
-                    'original_filename' => $file['original_filename'],
-                ];
+                // intialization just in case
+                if (!empty($files)) {
+                    $itemData['o:media'] = [];
+                }
+
+                // @TODO check if Omeka can have a media without an item. Should we import them?
+                foreach ($files as $file) 
+                {
+                    $itemData['o:media'][] = [
+                        'o:is_public' => '1',
+                        'o:ingester' => 'classicimporter_local',
+                        'original_file_action' => 'keep',
+                        'ingest_filename' => $this->getArg('files_source') . $file['filename'], 
+                        'original_filename' => $file['original_filename'],
+                    ];
+                }
             }
 
             $couldUpdate = false;
@@ -289,6 +293,10 @@ class ImportFromDumpJob extends AbstractJob
                 );
             }
             
+        }
+        if (!empty($this->getArg('files_source')))
+        {
+            $logger->info('Media succesfully imported.');
         }
         $logger->info('Items successfully imported.');
     }

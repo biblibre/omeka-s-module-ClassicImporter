@@ -157,9 +157,13 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
-        $post['files_source'] = trim($post['files_source']);
-        if ($post['files_source'][strlen($post['files_source']) - 1] != '/') {
-            $post['files_source'] = $post['files_source'] . '/';
+        // It is optional. Won't import media if not set.
+        if (!empty($post['files_source']))
+        {
+            $post['files_source'] = trim($post['files_source']);
+            if ($post['files_source'][strlen($post['files_source']) - 1] != '/') {
+                $post['files_source'] = $post['files_source'] . '/';
+            }
         }
 
         unset($post['csrf']);
