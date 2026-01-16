@@ -47,6 +47,11 @@ return [
             'classicimporter_resource_maps' => Api\Adapter\ResourceMapAdapter::class, 
         ],
     ],
+    'media_ingesters' => [
+        'factories' => [
+            'classicimporter_local' => Service\Media\Ingester\LocalFactory::class,
+        ],
+    ],
     'service_manager' => [
         'factories' => [
             'ClassicImporter\DumpManager' => Service\DumpManagerFactory::class,
