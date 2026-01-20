@@ -96,6 +96,7 @@ class IndexController extends AbstractActionController
         $form->addPropertyMappings($properties, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->addResourceClassMappings($resourceClasses, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->setFilesSource($post['files_source']);
+        $form->setFilesSource($post['domain_name']);
 
         $view->setVariable('form', $form);
         $view->setVariable('resourceClasses', $resourceClasses);
@@ -154,6 +155,7 @@ class IndexController extends AbstractActionController
         $form->setData($post);
         if (!$form->isValid()) {
             $this->messenger()->addFormErrors($form);
+            $dumpManager->deleteDumpDatabase();
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
@@ -163,6 +165,32 @@ class IndexController extends AbstractActionController
             $post['files_source'] = trim($post['files_source']);
             if ($post['files_source'][strlen($post['files_source']) - 1] != '/') {
                 $post['files_source'] = $post['files_source'] . '/';
+            }
+            if (is_dir($post['files_source']))
+            {
+                $this->messenger()->addError('Given media folders does not exist on disk.'); // @translate
+                $dumpManager->deleteDumpDatabase();
+                return $this->redirect()->toRoute('admin/classicimporter');
+            }
+        }
+
+        if (!empty($post['domain_name']))
+        {
+            $post['domain_name'] = trim($post['domain_name']);
+            if (str_contains($post['domaine_name'], '://'))
+            {
+                $domainName = explode('://', $post['domain_name']);
+                if (count($domainName) == 2) {
+                    $post['domaine_name'] = trim($domainName[1], '/');
+                }
+                else {
+                    $this->messenger()->addError(sprintf('Given url \'%s\' for old omeka instance is invalid.', $post['domaine_name'])); // @translate
+                    $dumpManager->deleteDumpDatabase();
+                    return $this->redirect()->toRoute('admin/classicimporter');
+                }
+            }
+            else {
+                $post['domaine_name'] = trim($post['domain_name'], '/');
             }
         }
 

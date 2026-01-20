@@ -38,6 +38,15 @@ class ImportForm extends Form
         ]);
 
         $this->add([
+            'name' => 'domain_name',
+            'type' => 'text',
+            'options' => [
+                'label' => 'What used to be the url of the Omeka instance', // @translate
+                'info' => 'If you used to connect to \'https://myomeka.com/\', then put myomeka.com (or https://myomeka.com, it does not matter). It is only for text replacement purpose, it does not matter if the url still works anymore or not.', // @translate
+            ]
+        ]);
+
+        $this->add([
             'name' => 'db_admin',
             'type' => 'text',
             'options' => [

@@ -18,6 +18,10 @@ class MappingForm extends Form
             'name' => 'files_source',
             'type' => 'hidden',
         ]);
+        $this->add([
+            'name' => 'domain_name',
+            'type' => 'hidden',
+        ]);
         
         $this->add([
             'name' => 'import_collections',
@@ -173,5 +177,8 @@ class MappingForm extends Form
 
     public function setFilesSource($filesSource) {
         $this->get('files_source')->setValue($filesSource);
+    }
+    public function setDomainName($domainName) {
+        $this->get('domain_name')->setValue($domainName);
     }
 }
