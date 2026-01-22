@@ -126,6 +126,22 @@ class MappingForm extends Form
                     ],
                 ]);
             }
+
+            $this->add([
+                'name' => 'preserve_html[' . $property['element_id'] . ']',
+                'type' => OptionalCheckbox::class,
+                'options' => [
+                    'label' => 'Preserve html of element ' . $property['element_set_name'] . ' ' . $property['element_name'],
+                ],
+            ]);
+
+            $this->add([
+                'name' => 'transform_uris[' . $property['element_id'] . ']',
+                'type' => OptionalCheckbox::class,
+                'options' => [
+                    'label' => 'Transform URIs of element ' . $property['element_set_name'] . ' ' . $property['element_name'],
+                ],
+            ]);
         }
     }
 

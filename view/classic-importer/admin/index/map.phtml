@@ -23,6 +23,8 @@ $escapeHtml = $this->plugin('escapeHtml');
             <th><?= $this->translate('Omeka vocabulary name'); ?></th>
             <th><?= $this->translate('Omeka property'); ?></th>
             <th><?= $this->translate('Omeka-S property'); ?></th>
+            <th><?= $this->translate('Keep HTML?'); ?></th>
+            <th><?= $this->translate('Map URIs to imported resources?'); ?></th>
         </tr>
     </thead>
     <tbody>
@@ -32,6 +34,12 @@ $escapeHtml = $this->plugin('escapeHtml');
                 <td><?= $this->escapeHtml($property['element_name']); ?></td>
                 <td>
                     <?= $this->formElement($form->get('elements_properties[' . $property['element_id'] . ']')); ?>
+                </td>
+                <td>
+                    <?= $this->formElement($form->get('preserve_html[' . $property['element_id'] . ']')); ?>
+                </td>
+                <td>
+                    <?= $this->formElement($form->get('transform_uris[' . $property['element_id'] . ']')); ?>
                 </td>
             </tr>
         <?php endforeach; ?>
