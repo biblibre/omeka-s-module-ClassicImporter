@@ -6,6 +6,8 @@ use Omeka\Job\AbstractJob;
 
 class ImportFromDumpJob extends AbstractJob
 {
+    protected $propertiesToAddLater;
+
     public function perform()
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
@@ -53,10 +55,63 @@ class ImportFromDumpJob extends AbstractJob
 
     public function importResourcesFromDump($dumpConn, $properties, $resourceClasses)
     {
+        $logger = $this->getServiceLocator()->('Omeka\Logger');
+
         if ($this->getArg('import_collections') == '1')
             $this->importItemSetsFromDump($dumpConn, $properties, $resourceClasses);
 
         $this->importItemsFromDump($dumpConn, $properties, $resourceClasses);
+
+        foreach ($this->propertiesToAddLater as $id => $properties) {
+            foreach ($properties as $property) { 
+                if ($property['type'] != 'resource') {
+                    continue;
+                }
+                $targetId = $property['value_resource_id'];
+
+                $propertyRep = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $id)->getContent();
+                if (empty($property)) {
+                    continue;
+                }
+
+                $matchingTargetResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                        [
+                            'mapped_resource_name' => $property['target_resource_name'],
+                            'classic_resource_id' => $targetId,
+                        ]
+                    )->getContent();
+
+                $matchingResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                    [
+                        'mapped_resource_name' => $property['resource_name'],
+                        'classic_resource_id' => $id,
+                    ]
+                )->getContent();
+                
+                if (!empty($matchingResource) && !empty($matchingTargetResource))
+                {
+                    $mappedresourceName = $property['resource_name'];
+                    unset($property['mapped_resource_name']);
+                    $property['value_resource_id'] = $matchingTargetResource[0]->resource()->id();
+
+                    if ($mappedresourceName == 'item_set') {
+                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
+                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+                    }
+                    else if ($mappedresourceName == 'item') {
+                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
+                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+                    }
+                    else {
+                        $logger = $this->getServiceLocator()->get('Omeka\Logger')->warn(
+                            sprintf('Invalid target resource type for URI : \'%s.\'', $mappedresourceName));
+                    }
+                }
+            }
+        }
+        if (!empty($this->propertiesToAddLater)) {
+            $logger->info('URIs towards resources successfully imported.');
+        }
     }
 
     public function importItemSetsFromDump($dumpConn, $properties, $resourceClasses)
@@ -98,14 +153,44 @@ class ImportFromDumpJob extends AbstractJob
                 {
                     $propertyId = $this->getArg('elements_properties')[$property['element_id']];
                     $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
-                    $itemSetData[$term][] = [ //for each of the values
-                        'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                        'type' => 'literal',
-                        'is_public' => '1',
-                        '@annotation' => null,
-                        '@language' => '',
-                        '@value' => $property['text'], // @TODO handle case when property has "html" in Omeka
-                    ];
+
+                    $transformedProperty = [];
+                    if ($this->getArg('transform_uris')[$property['element_id']] == '1') {
+                        $transformedProperty = $this->transformValue($property['text']);
+                    }
+
+                    // empty means no transformation was used
+                    if (empty($transformedProperty)) {
+                        $itemSetData[$term][] = [ //for each of the values
+                            'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
+                            'type' => 'literal',
+                            'is_public' => '1',
+                            '@annotation' => null,
+                            '@language' => '',
+                            '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
+                                        $property['text'] : $this->cleanTextFromHTML($property['text']),
+                        ];
+                    }
+                    else {
+                        if ($transformedProperty['type'] == 'resource') {
+                            $this->propertiesToAddLater[strval($itemSet['id'])][] =
+                                array_merge(
+                                [
+                                    'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
+                                    'resource_name' => 'item_set',
+                                ],
+                                $transformedProperty);
+                            }
+                        else {
+                            $itemSetData[$term] =
+                            array_merge(
+                            [
+                                'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
+                                'is_public' => '1',
+                            ],
+                            $transformedProperty);
+                        } 
+                    }
                 }
             }
 
@@ -184,7 +269,6 @@ class ImportFromDumpJob extends AbstractJob
             $files = $stmt->fetchAllAssociative();
 
             $itemData = [
-                 // @TODO check if this is column 'featured'
                 'o:is_public' => strval($item['public']),
 
                 // important so API doesn't add one automatically
@@ -219,14 +303,47 @@ class ImportFromDumpJob extends AbstractJob
                 {
                     $propertyId = $this->getArg('elements_properties')[$property['element_id']];
                     $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
-                    $itemData[$term][] = [ //for each of the values
-                        'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                        'type' => 'literal',
-                        'is_public' => '1',
-                        '@annotation' => null,
-                        '@language' => '',
-                        '@value' => $property['text'], // @TODO handle case when property has "html" in Omeka
-                    ];
+
+                    $transformedProperty = [];
+                    if ($this->getArg('transform_uris')[$property['element_id']] == '1') {
+                        $transformedProperty = $this->transformValue($property['text']);
+                    }
+                    else {
+                        $this->getServiceLocator()->get('Omeka\Logger')->info("transform uri disabled on element.");
+                    }
+
+                    // empty means no transformation was used
+                    if (empty($transformedProperty)) {
+                        $itemData[$term][] = [ //for each of the values
+                            'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
+                            'type' => 'literal',
+                            'is_public' => '1',
+                            '@annotation' => null,
+                            '@language' => '',
+                            '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
+                                        $property['text'] : $this->cleanTextFromHTML($property['text']),
+                        ];
+                    }
+                    else {
+                        if ($transformedProperty['type'] == 'resource') {
+                            $this->propertiesToAddLater[strval($item['id'])][] =
+                                array_merge(
+                                [
+                                    'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
+                                    'resource_name' => 'item',
+                                ],
+                                $transformedProperty);
+                            }
+                        else {
+                            $itemData[$term] =
+                            array_merge(
+                            [
+                                'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
+                                'is_public' => '1',
+                            ],
+                            $transformedProperty);
+                        } 
+                    }
                 }
             }
 
@@ -238,7 +355,6 @@ class ImportFromDumpJob extends AbstractJob
                     $itemData['o:media'] = [];
                 }
 
-                // @TODO check if Omeka can have a media without an item. Should we import them?
                 foreach ($files as $file) 
                 {
                     $itemData['o:media'][] = [
@@ -294,10 +410,91 @@ class ImportFromDumpJob extends AbstractJob
             }
             
         }
+
         if (!empty($this->getArg('files_source')))
         {
             $logger->info('Media succesfully imported.');
         }
         $logger->info('Items successfully imported.');
+    }
+
+    protected function cleanTextFromHTML($text) {
+        // remove html elements from the text
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\s+/u', ' ', $text);
+
+        return trim($text);
+    }
+
+    protected function transformValue($value) {
+        // it's <a ... href="...." ...>...</a> ?
+        $matches = [];
+
+        // black magic
+        $isHref = preg_match('/^<a\s+(?:[^>]*?\s+)?href="([^"]+)"[^>]*>([^<]*?)<\/a>$/', $value, $matches);
+
+        if ($isHref && count($matches) == 3) {
+            $label = $matches[2];
+            $url = $matches[1];
+            return $this->transformUrl($url, $label);
+        }
+
+        $text = $this->cleanTextFromHTML($value);
+
+        // it's a link?
+        $words = explode(' ', $value);
+        $label = '';
+        if (count($words) > 1)
+        {
+            $label = implode(' ', array_slice($words, 0, count($words) - 1));
+        }
+        $potentialUri = $words[count($words) - 1];
+
+        if (filter_var($potentialUri, FILTER_VALIDATE_URL))
+        {
+            return $this->transformUrl($potentialUri, $label);
+        }
+
+        return [];
+    }
+
+    protected function transformUrl($value, $label = '') {
+        $urlParsed = parse_url($value);
+
+        if ($urlParsed === false || empty($urlParsed)) {
+            return [];
+        }
+
+        $urlPath = explode('/', $urlParsed['path']);
+
+        if (count($urlPath) == 4 && $urlParsed['hostname'] == $this->getArg('domaine_name') && $urlPath[2] == 'show') {
+            switch ($urlPath[1]) {
+                case 'items':
+                    return [
+                        'type' => 'resource',
+                        '@annotation' => null,
+                        'value_resource_id' => $urlPath[3],
+                        'target_resource_name' => 'item',
+                    ];
+                case 'collections':
+                    return [
+                        'type' => 'resource',
+                        '@annotation' => null,
+                        'value_resource_id' => $urlPath[3],
+                        'target_resource_name' => 'item_set',
+                    ];
+                default:
+                    break;
+            }
+        }
+
+        return [
+          'type' => 'uri',
+          '@annotation' => null,
+          'o:lang' => '',
+          '@id' => $value,
+          'o:label' => $label,
+        ];
     }
 }
