@@ -55,7 +55,7 @@ class ImportFromDumpJob extends AbstractJob
 
     public function importResourcesFromDump($dumpConn, $properties, $resourceClasses)
     {
-        $logger = $this->getServiceLocator()->('Omeka\Logger');
+        $logger = $this->getServiceLocator()->get('Omeka\Logger');
 
         if ($this->getArg('import_collections') == '1')
             $this->importItemSetsFromDump($dumpConn, $properties, $resourceClasses);
@@ -166,7 +166,6 @@ class ImportFromDumpJob extends AbstractJob
             $itemSetData = [
                 // collections don't have classes in Omeka so don't try to map any
                 // no owner to be set either
-                // 'o:is_open' => '0', @TODO check if this is column 'featured'
                 'o:is_public' => strval($itemSet['public']),
             ];
 
@@ -174,45 +173,53 @@ class ImportFromDumpJob extends AbstractJob
                 // only if the property is mapped
                 if (!empty($this->getArg('elements_properties')[$property['element_id']]))
                 {
-                    $propertyId = $this->getArg('elements_properties')[$property['element_id']];
-                    $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
+                    $propertyIds = $this->getArg('elements_properties')[$property['element_id']];
+                    if (!is_array($propertyIds))
+                    {
+                        $propertyIds = [ $propertyIds ];
+                    }
 
                     $transformedProperty = [];
                     if ($this->getArg('transform_uris')[$property['element_id']] == '1') {
                         $transformedProperty = $this->transformValue($property['text']);
                     }
 
-                    // empty means no transformation was used
-                    if (empty($transformedProperty)) {
-                        $itemSetData[$term][] = [ //for each of the values
-                            'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                            'type' => 'literal',
-                            'is_public' => '1',
-                            '@annotation' => null,
-                            '@language' => '',
-                            '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
-                                        $property['text'] : $this->cleanTextFromHTML($property['text']),
-                        ];
-                    }
-                    else {
-                        if ($transformedProperty['type'] == 'resource') {
-                            $this->propertiesToAddLater[strval($itemSet['id'])][] =
+                    foreach ($propertyIds as $propertyId)
+                    {
+                        $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
+
+                        // empty means no transformation was used
+                        if (empty($transformedProperty)) {
+                            $itemSetData[$term][] = [ //for each of the values
+                                'property_id' => intval($propertyId),
+                                'type' => 'literal',
+                                'is_public' => '1',
+                                '@annotation' => null,
+                                '@language' => '',
+                                '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
+                                            $property['text'] : $this->cleanTextFromHTML($property['text']),
+                            ];
+                        }
+                        else {
+                            if ($transformedProperty['type'] == 'resource') {
+                                $this->propertiesToAddLater[strval($itemSet['id'])][] =
+                                    array_merge(
+                                    [
+                                        'property_id' => intval($propertyId),
+                                        'resource_name' => 'item_set',
+                                    ],
+                                    $transformedProperty);
+                                }
+                            else {
+                                $itemSetData[$term] =
                                 array_merge(
                                 [
-                                    'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                                    'resource_name' => 'item_set',
+                                    'property_id' => intval($propertyId),
+                                    'is_public' => '1',
                                 ],
                                 $transformedProperty);
-                            }
-                        else {
-                            $itemSetData[$term] =
-                            array_merge(
-                            [
-                                'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                                'is_public' => '1',
-                            ],
-                            $transformedProperty);
-                        } 
+                            } 
+                        }
                     }
                 }
             }
@@ -324,9 +331,6 @@ class ImportFromDumpJob extends AbstractJob
                 // only if the property is mapped
                 if (!empty($this->getArg('elements_properties')[$property['element_id']]))
                 {
-                    $propertyId = $this->getArg('elements_properties')[$property['element_id']];
-                    $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
-
                     $transformedProperty = [];
                     if ($this->getArg('transform_uris')[$property['element_id']] == '1') {
                         $transformedProperty = $this->transformValue($property['text']);
@@ -335,37 +339,48 @@ class ImportFromDumpJob extends AbstractJob
                         $this->getServiceLocator()->get('Omeka\Logger')->info("transform uri disabled on element.");
                     }
 
-                    // empty means no transformation was used
-                    if (empty($transformedProperty)) {
-                        $itemData[$term][] = [ //for each of the values
-                            'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                            'type' => 'literal',
-                            'is_public' => '1',
-                            '@annotation' => null,
-                            '@language' => '',
-                            '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
-                                        $property['text'] : $this->cleanTextFromHTML($property['text']),
-                        ];
+                    $propertyIds = $this->getArg('elements_properties')[$property['element_id']];
+
+                    if (!is_array($propertyIds)) {
+                        $propertyIds = [ $propertyIds ];
                     }
-                    else {
-                        if ($transformedProperty['type'] == 'resource') {
-                            $this->propertiesToAddLater[strval($item['id'])][] =
+
+                    foreach ($propertyIds as $propertyId)
+                    {
+                        $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
+
+                        // empty means no transformation was used
+                        if (empty($transformedProperty)) {
+                            $itemData[$term][] = [ //for each of the values
+                                'property_id' => intval($propertyId),
+                                'type' => 'literal',
+                                'is_public' => '1',
+                                '@annotation' => null,
+                                '@language' => '',
+                                '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
+                                            $property['text'] : $this->cleanTextFromHTML($property['text']),
+                            ];
+                        }
+                        else {
+                            if ($transformedProperty['type'] == 'resource') {
+                                $this->propertiesToAddLater[strval($item['id'])][] =
+                                    array_merge(
+                                    [
+                                        'property_id' => intval($propertyId),
+                                        'resource_name' => 'item',
+                                    ],
+                                    $transformedProperty);
+                                }
+                            else {
+                                $itemData[$term] =
                                 array_merge(
                                 [
-                                    'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                                    'resource_name' => 'item',
+                                    'property_id' => intval($propertyId),
+                                    'is_public' => '1',
                                 ],
                                 $transformedProperty);
-                            }
-                        else {
-                            $itemData[$term] =
-                            array_merge(
-                            [
-                                'property_id' => intval($this->getArg('elements_properties')[$property['element_id']]),
-                                'is_public' => '1',
-                            ],
-                            $transformedProperty);
-                        } 
+                            } 
+                        }
                     }
                 }
             }

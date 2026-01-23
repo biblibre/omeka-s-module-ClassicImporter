@@ -103,12 +103,12 @@ class MappingForm extends Form
                     'name' => 'elements_properties[' . $property['element_id'] . ']',
                     'type' => OptionalPropertySelect::class,
                     'options' => [
-                        'empty_option' => 'Do not import', // @translate
                         'label' => 'Mapping of element ' . $property['element_set_name'] . ' ' . $property['element_name'],
                     ],
                     'attributes' => [
                         'required' => false,
-                        'value' => $defaultMapping->id(),
+                        'value' => [ $defaultMapping->id() ],
+                        'multiple' => true,
                     ],
                 ]);
             }
@@ -118,11 +118,11 @@ class MappingForm extends Form
                     'name' => 'elements_properties[' . $property['element_id'] . ']',
                     'type' => OptionalPropertySelect::class,
                     'options' => [
-                        'empty_option' => 'Do not import', // @translate
                         'label' => 'Mapping of element ' . $property['element_set_name'] . ' ' . $property['element_name'],
                     ],
                     'attributes' => [
                         'required' => false,
+                        'multiple' => true,
                     ],
                 ]);
             }
@@ -166,7 +166,6 @@ class MappingForm extends Form
                     'name' => 'types_classes[' . $resourceClass['id'] . ']',
                     'type' => OptionalResourceClassSelect::class,
                     'options' => [
-                        'empty_option' => 'Do not import', // @translate
                         'label' => 'Mapping of class ' . $resourceClass['name'],
                     ],
                     'attributes' => [
@@ -180,7 +179,6 @@ class MappingForm extends Form
                     'name' => 'types_classes[' . $resourceClass['id'] . ']',
                     'type' => OptionalResourceClassSelect::class,
                     'options' => [
-                        'empty_option' => 'Do not import', // @translate
                         'label' => 'Mapping of class ' . $resourceClass['name'],
                     ],
                     'attributes' => [

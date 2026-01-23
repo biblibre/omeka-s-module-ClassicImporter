@@ -30,8 +30,8 @@ $escapeHtml = $this->plugin('escapeHtml');
     <tbody>
         <?php foreach ($properties as $index => $property): ?>
             <tr>
-                <td><?= $this->escapeHtml($property['element_set_name']); ?></td>
-                <td><?= $this->escapeHtml($property['element_name']); ?></td>
+                <td><?= $this->translate($this->escapeHtml($property['element_set_name'])); ?></td>
+                <td><?= $this->translate($this->escapeHtml($property['element_name'])); ?></td>
                 <td>
                     <?= $this->formElement($form->get('elements_properties[' . $property['element_id'] . ']')); ?>
                 </td>
@@ -72,3 +72,17 @@ $escapeHtml = $this->plugin('escapeHtml');
 
 <?php echo $this->form()->closeTag($form); ?>
 
+<script>
+(function ($) {
+  $(document).ready(function () {
+    // Activate Chosen
+    const $select = $('select').chosen({
+      allow_single_deselect: true,
+      width: '100%',
+      search_contains: true,
+      placeholder_text_multiple: '<?php echo $this->translate('Do not import'); ?>',
+      placeholder_text_single: '<?php echo $this->translate('Do not import'); ?>'
+    });
+  });
+})(jQuery);
+</script>
