@@ -70,7 +70,7 @@ class ImportFromDumpJob extends AbstractJob
                 $targetId = $property['value_resource_id'];
 
                 $propertyRep = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $id)->getContent();
-                if (empty($property)) {
+                if (empty($propertyRep)) {
                     continue;
                 }
 
@@ -88,10 +88,11 @@ class ImportFromDumpJob extends AbstractJob
                     ]
                 )->getContent();
                 
-                if (!empty($matchingResource) && !empty($matchingTargetResource))
-                {
+                if (!empty($matchingResource) && !empty($matchingTargetResource)) {
                     $mappedresourceName = $property['resource_name'];
                     unset($property['mapped_resource_name']);
+                    unset($property['o:label']);
+                    unset($property['@id']);
                     $property['value_resource_id'] = $matchingTargetResource[0]->resource()->id();
 
                     if ($mappedresourceName == 'item_set') {
@@ -105,6 +106,28 @@ class ImportFromDumpJob extends AbstractJob
                     else {
                         $logger = $this->getServiceLocator()->get('Omeka\Logger')->warn(
                             sprintf('Invalid target resource type for URI : \'%s.\'', $mappedresourceName));
+                    }
+                }
+
+                // target resource is invalid so we just register it as a random url.
+                else if (!empty($matchingResource)) {
+                    $property =
+                    [
+                        'property_id' => $property['property_id'],
+                        'is_public' => '1',
+                        'type' => 'uri',
+                        '@annotation' => null,
+                        'o:lang' => '',
+                        '@id' => $property['@id'],
+                        'o:label' => $property['o:label'],
+                    ];
+                    if ($mappedresourceName == 'item_set') {
+                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
+                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+                    }
+                    else if ($mappedresourceName == 'item') {
+                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
+                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
                     }
                 }
             }
@@ -476,6 +499,8 @@ class ImportFromDumpJob extends AbstractJob
                         '@annotation' => null,
                         'value_resource_id' => $urlPath[3],
                         'target_resource_name' => 'item',
+                        'o:label' => $label, // in case the item was not a valid id
+                        '@id' => $value, // same
                     ];
                 case 'collections':
                     return [
@@ -483,6 +508,8 @@ class ImportFromDumpJob extends AbstractJob
                         '@annotation' => null,
                         'value_resource_id' => $urlPath[3],
                         'target_resource_name' => 'item_set',
+                        'o:label' => $label, // same
+                        '@id' => $value, // same
                     ];
                 default:
                     break;
