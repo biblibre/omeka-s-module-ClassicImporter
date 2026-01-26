@@ -140,6 +140,7 @@ class MappingForm extends Form
                 'type' => OptionalCheckbox::class,
                 'options' => [
                     'label' => 'Transform URIs of element ' . $property['element_set_name'] . ' ' . $property['element_name'],
+                    'value' => '1',
                 ],
             ]);
         }
@@ -194,5 +195,15 @@ class MappingForm extends Form
     }
     public function setDomainName($domainName) {
         $this->get('domain_name')->setValue($domainName);
+    }
+
+    public function addCollectionsTreeCheckbox() {
+        $this->add([
+            'name' => 'import_collections_tree',
+            'type' => OptionalCheckbox::class,
+            'options' => [
+                'label' => 'Import CollectionsTree\'s tree?', // @translate
+            ]
+        ]);
     }
 }

@@ -92,11 +92,26 @@ class IndexController extends AbstractActionController
         $stmt = $dumpManager->getConn()->executeQuery($sql);
         $resourceClasses = $stmt->fetchAllAssociative();
 
+        $sql =
+            <<<'SQL'
+            SHOW TABLES;
+            SQL;
+
+        $stmt = $dumpManager->getConn()->executeQuery($sql);
+        $tables = $stmt->fetchAllAssociative();
+
         $form = $this->getForm(MappingForm::class);
         $form->addPropertyMappings($properties, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->addResourceClassMappings($resourceClasses, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->setFilesSource($post['files_source']);
         $form->setDomainName($post['domain_name']);
+
+        foreach ($tables as $table) {
+            if (in_array('collection_trees', $table)) {
+                $form->addCollectionsTreeCheckbox();
+                break;
+            }
+        }
 
         $view->setVariable('form', $form);
         $view->setVariable('resourceClasses', $resourceClasses);
@@ -148,9 +163,24 @@ class IndexController extends AbstractActionController
         $stmt = $dumpManager->getConn()->executeQuery($sql);
         $resourceClasses = $stmt->fetchAllAssociative();
 
+        $sql =
+            <<<'SQL'
+            SHOW TABLES;
+            SQL;
+
+        $stmt = $dumpManager->getConn()->executeQuery($sql);
+        $tables = $stmt->fetchAllAssociative();
+
         $form = $this->getForm(MappingForm::class);
         $form->addPropertyMappings($properties);
         $form->addResourceClassMappings($resourceClasses);
+
+        foreach ($tables as $table) {
+            if (in_array('collection_trees', $table)) {
+                $form->addCollectionsTreeCheckbox();
+                break;
+            }
+        }
 
         $form->setData($post);
         if (!$form->isValid()) {

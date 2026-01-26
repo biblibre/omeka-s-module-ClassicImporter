@@ -10,6 +10,12 @@ $escapeHtml = $this->plugin('escapeHtml');
 <?= $this->formRow($form->get('files_source')); ?>
 <?= $this->formRow($form->get('domain_name')); ?>
 <?= $this->formRow($form->get('import_collections')); ?>
+<?php 
+    $importCollectionsTree = $form->get('import_collections_tree');
+    if ($importCollectionsTree) {
+        echo $this->formRow($importCollectionsTree);
+    }
+?>
 <?= $this->formRow($form->get('update')); ?>
 
 <fieldset id='page-actions'>

@@ -44,7 +44,13 @@ class ImportFromDumpJob extends AbstractJob
         $stmt = $dumpManager->getConn()->executeQuery($sql);
         $resourceClasses = $stmt->fetchAllAssociative();
 
-        $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses);
+        try {
+            $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses);
+        }
+        catch (\Exception $e) {
+            $logger->error(sprintf("Error: %s" . $e->getMessage()));
+            $dumpManager->deleteDumpDatabase();
+        }
         
         $dumpManager->deleteDumpDatabase();
 
@@ -61,6 +67,67 @@ class ImportFromDumpJob extends AbstractJob
             $this->importItemSetsFromDump($dumpConn, $properties, $resourceClasses);
 
         $this->importItemsFromDump($dumpConn, $properties, $resourceClasses);
+
+        $this->importUrisFromDump();
+    }
+
+    protected function importCollectionsTreeFromDump($dumpConn)
+    {
+        $logger = $this->getServiceLocator()->get('Omeka\Logger');
+
+        $sql =
+            <<<'SQL'
+            SELECT collections.id, collection_trees.parent_collection_id FROM collections
+            LEFT JOIN collection_trees ON collections.id = collection_trees.collection_id
+            SQL;
+
+        $stmt = $dumpConn->executeQuery($sql);
+        $itemSets = $stmt->fetchAllAssociative();
+
+        foreach ($itemSets as $itemSet) {
+            $logger->info("Looking at item set.");
+
+            if (!$itemSet['parent_collection_id']) {
+                $logger->info("Item set has no collection id.");
+                continue;
+            }
+            $logger->info(sprintf("Item set has collection id '%s'", $itemSet['parent_collection_id']));
+
+            $matchingResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                [
+                    'mapped_resource_name' => 'item_set',
+                    'classic_resource_id' => $itemSet['id'],
+                ]
+            )->getContent();
+
+            $matchingTargetResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                [
+                    'mapped_resource_name' => 'item_set',
+                    'classic_resource_id' => $itemSet['parent_collection_id'],
+                ]
+            )->getContent();
+
+            $logger->info("Found matching item sets.");
+
+            if (!empty($matchingResource) && !empty($matchingTargetResource)) {
+                $entityManager = $this->getServiceLocator()->get('Omeka\EntityManager');
+
+                $childItemSet = $entityManager->find('Omeka\Entity\ItemSet', $matchingTargetResource[0]->resource()->id());
+                $parentItemSet = $entityManager->find('Omeka\Entity\ItemSet', $matchingResource[0]->resource()->id());
+
+                $logger->info("Found entities");
+                
+                $this->getServiceLocator()->get('Omeka\ApiManager')->create('item_sets_tree_edges',
+                ['o:item_set' => $childItemSet, 'o:parent_item_set' => $parentItemSet]);
+            }
+
+            $logger->info("Done creating tree branch.");
+        }
+    }
+
+    protected function importUrisFromDump()
+    {
+        $logger = $this->getServiceLocator()->get('Omeka\Logger');
 
         foreach ($this->propertiesToAddLater as $id => $properties) {
             foreach ($properties as $property) { 
@@ -132,12 +199,13 @@ class ImportFromDumpJob extends AbstractJob
                 }
             }
         }
+
         if (!empty($this->propertiesToAddLater)) {
             $logger->info('URIs towards resources successfully imported.');
         }
     }
 
-    public function importItemSetsFromDump($dumpConn, $properties, $resourceClasses)
+    protected function importItemSetsFromDump($dumpConn, $properties, $resourceClasses)
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
 
@@ -145,6 +213,7 @@ class ImportFromDumpJob extends AbstractJob
             <<<'SQL'
             SELECT * FROM collections;
             SQL;
+
 
         $stmt = $dumpConn->executeQuery($sql);
         $itemSets = $stmt->fetchAllAssociative();
@@ -259,9 +328,13 @@ class ImportFromDumpJob extends AbstractJob
             }
         }
         $logger->info('Item sets successfully imported.');
+        if ($this->getArg('import_collections_tree', '0') == '1') {
+            $this->importCollectionsTreeFromDump($dumpConn);
+            $logger->info('Item sets tree successfully imported.');
+        }
     }
 
-    public function importItemsFromDump($dumpConn, $properties, $resourceClasses)
+    protected function importItemsFromDump($dumpConn, $properties, $resourceClasses)
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
 
