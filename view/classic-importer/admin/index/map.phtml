@@ -11,9 +11,14 @@ $escapeHtml = $this->plugin('escapeHtml');
 <?= $this->formRow($form->get('domain_name')); ?>
 <?= $this->formRow($form->get('import_collections')); ?>
 <?php 
-    $importCollectionsTree = $form->get('import_collections_tree');
-    if ($importCollectionsTree) {
-        echo $this->formRow($importCollectionsTree);
+    try {
+        $importCollectionsTree = $form->get('import_collections_tree');
+        if ($importCollectionsTree) {
+            echo $this->formRow($importCollectionsTree);
+        }
+    }
+    catch (\Laminas\Form\Exception\InvalidArgumentException $e) {
+        // do nothing, it means import_collections_tree was not added to the form. @TODO make this cleaner in the future.
     }
 ?>
 <?= $this->formRow($form->get('update')); ?>

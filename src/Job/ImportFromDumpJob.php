@@ -48,7 +48,7 @@ class ImportFromDumpJob extends AbstractJob
             $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses);
         }
         catch (\Exception $e) {
-            $logger->error(sprintf("Error: %s" . $e->getMessage()));
+            $logger->err(sprintf("Error: %s" . $e->getMessage()));
             $dumpManager->deleteDumpDatabase();
         }
         
@@ -107,7 +107,7 @@ class ImportFromDumpJob extends AbstractJob
                 ]
             )->getContent();
 
-            $logger->info("Found matching item sets.");
+            $logger->info(sprintf("Found matching item sets %s parent of %s.", $matchingTargetResource[0]->resource()->id(), $matchingResource[0]->resource()->id()));
 
             if (!empty($matchingResource) && !empty($matchingTargetResource)) {
                 $entityManager = $this->getServiceLocator()->get('Omeka\EntityManager');
