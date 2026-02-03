@@ -32,8 +32,8 @@ Finally, if no errors, all the imported resources should be on your Omeka-S inst
 Example
 -------
 
-![Screenshot of loading from a dump file.](loading_from_dump_file.png)
-![Screenshot of mapping properties](mapping_properties.png)
+![Screenshot of loading from a dump file.](screenshots/loading_from_dump_file.png)
+![Screenshot of mapping properties](screenshots/mapping_properties.png)
 
 Warning
 -------
@@ -54,6 +54,7 @@ Contact
 Current maintainers:
 
 * BibLibre
+* [Abel B.]
 
 
 All rights not expressly granted are reserved.
@@ -65,3 +66,4 @@ All rights not expressly granted are reserved.
 [Omeka forum]: https://forum.omeka.org/c/omeka-s/modules
 [module issues]: https://github.com/omeka-s-modules/CSVImport/issues
 [GNU/GPL v3]: https://www.gnu.org/licenses/gpl-3.0.html
+[Abel B.]: https://github.com/Bebel00
