@@ -48,7 +48,7 @@ class ImportFromDumpJob extends AbstractJob
             $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses);
         }
         catch (\Exception $e) {
-            $logger->err(sprintf("Error: %s" . $e->getMessage()));
+            $logger->err(sprintf("Error: %s", $e->getMessage()));
             $dumpManager->deleteDumpDatabase();
         }
         
@@ -74,7 +74,6 @@ class ImportFromDumpJob extends AbstractJob
     protected function importCollectionsTreeFromDump($dumpConn)
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
-
         $sql =
             <<<'SQL'
             SELECT collections.id, collection_trees.parent_collection_id FROM collections
@@ -84,14 +83,36 @@ class ImportFromDumpJob extends AbstractJob
         $stmt = $dumpConn->executeQuery($sql);
         $itemSets = $stmt->fetchAllAssociative();
 
-        foreach ($itemSets as $itemSet) {
-            $logger->info("Looking at item set.");
+        // If we're updating from a previous import, 
+        // we must delete every item sets tree branch before to reset it from scratch.
+        // This is to avoid bugs and impossible trees.
+        if ($this->getArg('update') == '1') {
+            foreach ($itemSets as $itemSet) {
+                $matchingResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                [
+                    'mapped_resource_name' => 'item_set',
+                    'classic_resource_id' => $itemSet['id'],
+                ]
+                )->getContent();
 
+                if (!empty($matchingResource)) {
+                    $treeEdges = $this->getServiceLocator()->get('Omeka\ApiManager')->search('item_sets_tree_edges',
+                    ['item_set_id' => $matchingResource[0]->resource()->id()])->getContent();
+
+                    if (!empty($treeEdges)) {
+                        foreach($treeEdges as $treeEdge) {
+                            $this->getServiceLocator()->get('Omeka\ApiManager')->delete('item_sets_tree_edges', $treeEdge->id());
+                        }
+                    }
+                }
+            }
+        }
+
+
+        foreach ($itemSets as $itemSet) {
             if (!$itemSet['parent_collection_id']) {
-                $logger->info("Item set has no collection id.");
                 continue;
             }
-            $logger->info(sprintf("Item set has collection id '%s'", $itemSet['parent_collection_id']));
 
             $matchingResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
                 [
@@ -107,21 +128,15 @@ class ImportFromDumpJob extends AbstractJob
                 ]
             )->getContent();
 
-            $logger->info(sprintf("Found matching item sets %s parent of %s.", $matchingTargetResource[0]->resource()->id(), $matchingResource[0]->resource()->id()));
-
             if (!empty($matchingResource) && !empty($matchingTargetResource)) {
                 $entityManager = $this->getServiceLocator()->get('Omeka\EntityManager');
 
-                $childItemSet = $entityManager->find('Omeka\Entity\ItemSet', $matchingTargetResource[0]->resource()->id());
-                $parentItemSet = $entityManager->find('Omeka\Entity\ItemSet', $matchingResource[0]->resource()->id());
-
-                $logger->info("Found entities");
+                $parentItemSet = $entityManager->find('Omeka\Entity\ItemSet', $matchingTargetResource[0]->resource()->id());
+                $childItemSet = $entityManager->find('Omeka\Entity\ItemSet', $matchingResource[0]->resource()->id());
                 
                 $this->getServiceLocator()->get('Omeka\ApiManager')->create('item_sets_tree_edges',
                 ['o:item_set' => $childItemSet, 'o:parent_item_set' => $parentItemSet]);
             }
-
-            $logger->info("Done creating tree branch.");
         }
     }
 
@@ -327,6 +342,7 @@ class ImportFromDumpJob extends AbstractJob
                 );
             }
         }
+
         $logger->info('Item sets successfully imported.');
         if ($this->getArg('import_collections_tree', '0') == '1') {
             $this->importCollectionsTreeFromDump($dumpConn);
