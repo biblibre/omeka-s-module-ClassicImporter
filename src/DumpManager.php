@@ -4,37 +4,59 @@ namespace ClassicImporter;
 
 class DumpManager
 {
-    // @var string $tempUser
-    protected $tempUser;
-
-    // @var string $tempUser
-    protected $tempUsername;
-
-    // @var string $tempUser
-    protected $tempPassword;
-
-    // @var string $tempUser
-    protected $tempDbName;
-
-    // @var string $tempUser
-    protected $tempHost;
-
     protected $serviceLocator;
 
     protected $dumpConn;
+
+    protected $tempUsername;
+
+    protected $tempHostname;
+
+    protected $tempDbName;
+
+    protected $tempPassword;
+
+    protected $errorMessage;
 
     public function __construct($serviceLocator)
     {
         $this->serviceLocator = $serviceLocator;
 
-        $tempdb = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_tempdb')->getContent();
-        if (!empty($tempdb)) {
-            $this->dumpConn = new \Doctrine\DBAL\Connection([
-                'dbname'   => $tempdb[0]->dbname(),
-                'user'     => $tempdb[0]->username(),
-                'password' => $tempdb[0]->password(),
-                'host'     => $tempdb[0]->host(),
-        ], $this->serviceLocator->get('Omeka\Connection')->getDriver());
+        if (empty($serviceLocator->get('Config')['classicimporter']['tempdb_credentials'])) {
+            $this->dumpConn = null;
+            $this->errorMessage = "Credential files could not be found in config."; // @translate
+            return;
+        }
+
+        $tempdb = $serviceLocator->get('Config')['classicimporter']['tempdb_credentials'];
+        if (!empty($tempdb) && $tempdb
+            && array_key_exists("password", $tempdb)
+            && array_key_exists("username", $tempdb)
+            && array_key_exists("hostname", $tempdb)
+            && array_key_exists("database", $tempdb)) {
+
+            try {
+                $this->dumpConn = new \Doctrine\DBAL\Connection([
+                    'dbname'   => $tempdb["database"],
+                    'user'     => $tempdb["username"],
+                    'password' => $tempdb["password"],
+                    'host'     => $tempdb["hostname"],
+                ], $this->serviceLocator->get('Omeka\Connection')->getDriver());
+            }
+
+            catch (\Doctrine\DBAL\Exception\ConnectionException $e) {
+                $this->dumpConn = null;
+                $this->errorMessage = $e->getMessage();
+            }
+
+            $this->tempUsername = $tempdb["username"];
+            $this->tempHostname = $tempdb["hostname"];
+            $this->tempPassword = $tempdb["password"];
+            $this->tempDbName = $tempdb["database"];
+        }
+        else {
+            $this->dumpConn = null;
+            $this->errorMessage = "Invalid dump credentials config."; // @translate
         }
     }
 
@@ -42,79 +64,32 @@ class DumpManager
      * Execute safely by creating a new tempuser a dump.
      * Only done once by controller
      */
-    public function createDumpDatabase(string $filepath, string $adminUser, string $adminPassword)
+    public function createDumpDatabase(string $filepath)
     {
         if (!file_exists($filepath) || !filesize($filepath) || !is_readable($filepath)) {
             throw new \RuntimeException(sprintf('Failed to read file %s.', $filepath));
         }
 
-        $tempdb = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_tempdb')->getContent();
-        if (!empty($tempdb)) {
-            throw new \RuntimeException('Only one temp DB can be created for storage and safety reason. Please remove other classic import temp DB to fix.');
+        if ($this->dumpConn == null) {
+            throw new \RuntimeException(sprintf("Connection to the dump database failed: %s", // @tanslate
+             $this->errorMessage)); 
         }
 
-        $userAndDbCreation = <<<'SQL'
-        CREATE DATABASE %s CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-        CREATE USER '%s'@'%s' IDENTIFIED BY '%s';
-        GRANT ALL PRIVILEGES ON %s.* TO '%s'@'%s';
-        FLUSH PRIVILEGES;
+        $sql = <<<SQL
+            SHOW TABLES;
         SQL;
+
+        $stmt = $this->dumpConn->executeQuery($sql);
+        $tables = $stmt->fetchAllAssociative();
+
+        /* WARNING DEBUGGING ONLY */
+        // $this->deleteDumpDatabase();
+        if (!empty($tables)) {
+            throw new \RuntimeException("Dump database is not empty."); // @translate
+        }
         
-        // hardcoded because mysql command is executed locally anyways
-        $this->tempHost = 'localhost'; // @TODO make this a parameter
-        $this->tempUsername = uniqid('classic_importer_user_');
-        $this->tempPassword = uniqid();
-        $this->tempDbName = uniqid('classic_importer_tempdb_');
 
-        $userAndDbCreation = sprintf($userAndDbCreation, $this->tempDbName,
-            $this->tempUsername, $this->tempHost, $this->tempPassword, $this->tempDbName,
-            $this->tempUsername, $this->tempHost);
-
-        $command = sprintf(
-    'mysql --user=%s --password=%s -e %s 2>&1',
-    escapeshellarg($adminUser),
-            escapeshellarg($adminPassword),
-            escapeshellarg($userAndDbCreation)
-        );
-
-        exec($command, $output, $exitCode);
-
-        if ($exitCode !== 0) {
-            throw new \RuntimeException(
-                "Failed to create temp database:\n" . implode("\n", $output)
-            );
-        }
-
-        $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_tempdb', ['username' => $this->tempUsername,
-                                                        'password' => $this->tempPassword,
-                                                        'host' => $this->tempHost,
-                                                        'dbname' => $this->tempDbName,
-                                                    ]);
-
-        $command = sprintf(
-    'mysql --user=%s --password=%s %s < %s 2>&1',
-    escapeshellarg($this->tempUsername),
-            escapeshellarg($this->tempPassword),
-            escapeshellarg($this->tempDbName),
-            escapeshellarg($filepath)
-        );
-
-        exec($command, $output, $exitCode);
-
-        if ($exitCode !== 0) {
-            $this->deleteDumpDatabase();
-            throw new \RuntimeException(
-                "SQL dump import failed:\n" . implode("\n", $output)
-            );
-        }
-
-        $this->dumpConn = new \Doctrine\DBAL\Connection([
-            'dbname'   => $this->tempDbName,
-            'user'     => $this->tempUsername,
-            'password' => $this->tempPassword,
-            'host'     => $this->tempHost,
-        ], $this->serviceLocator->get('Omeka\Connection')->getDriver());
+        $this->getConn()->executeQuery(file_get_contents($filepath));
     }
 
     public function getConn(): \Doctrine\DBAL\Connection | null
@@ -124,17 +99,33 @@ class DumpManager
 
     public function deleteDumpDatabase()
     {
-        $tempdb = $this->serviceLocator->get('Omeka\ApiManager')->search('classicimporter_tempdb')->getContent();
-        if (empty($tempdb))
+        if (empty($this->dumpConn))
             return;
 
-        $sql = <<<'SQL'
-            DROP DATABASE IF EXISTS %s;
+        $this->dumpConn->executeStatement('SET FOREIGN_KEY_CHECKS=0');
+
+        $sql = <<<SQL
+            SHOW TABLES;
         SQL;
 
-        $this->getConn()->executeQuery(sprintf($sql, $tempdb[0]->dbname()));
-        $this->serviceLocator->get('Omeka\ApiManager')->delete('classicimporter_tempdb', $tempdb[0]->id());
+        $stmt = $this->dumpConn->executeQuery($sql);
+        $tables = $stmt->fetchAllAssociative();
 
-        $this->dumpConn = null;
+        if (!empty($tables))
+        {
+            $tableNames = [];
+
+            foreach ($tables as $table) {
+                $tableNames[] = '`' . $table[array_key_first($table)] . '`';
+            }
+
+            $sql = sprintf(<<<SQL
+                DROP TABLE IF EXISTS %s;
+            SQL, implode(', ',$tableNames));
+
+            $this->dumpConn->executeQuery(sprintf($sql, $this->tempDbName));
+        }
+
+        $this->dumpConn->executeStatement('SET FOREIGN_KEY_CHECKS=1');
     }
 }

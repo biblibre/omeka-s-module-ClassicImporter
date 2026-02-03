@@ -19,11 +19,6 @@ class Module extends AbstractModule
     {
         $connection = $serviceLocator->get('Omeka\Connection');
         $sql = <<<'SQL'
-CREATE TABLE classic_importer_temp_db (
-    id INT AUTO_INCREMENT NOT NULL, username VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL, dbname VARCHAR(255) NOT NULL,
-    hostname VARCHAR(255) NOT NULL, PRIMARY KEY(id)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
 CREATE TABLE classic_importer_resource_map (
     id INT AUTO_INCREMENT NOT NULL,
     resource_id INT NOT NULL,
@@ -53,7 +48,6 @@ SQL;
         $connection = $serviceLocator->get('Omeka\Connection');
 
         $sql = <<<'SQL'
-DROP TABLE IF EXISTS classic_importer_temp_db;
 ALTER TABLE classic_importer_resource_map DROP FOREIGN KEY FK_10D9435789329D25;
 DROP TABLE IF EXISTS classic_importer_resource_map;
 SQL;

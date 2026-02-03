@@ -43,7 +43,6 @@ return [
     ],
     'api_adapters' => [
         'invokables' => [
-            'classicimporter_tempdb' => Api\Adapter\TempDBAdapter::class,
             'classicimporter_resource_maps' => Api\Adapter\ResourceMapAdapter::class, 
         ],
     ],
@@ -110,4 +109,12 @@ return [
             ],
         ],
     ],
+    'classicimporter' => [
+        'tempdb_credentials' => [
+            "username" => "tempdb",
+            "password" => "password",
+            "hostname" => "localhost",
+            "database" => "tempdb",
+        ]
+    ]
 ];

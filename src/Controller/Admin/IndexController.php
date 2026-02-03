@@ -55,16 +55,16 @@ class IndexController extends AbstractActionController
 
         $sqlFilePath = $post['source'];
 
-        $dumpManager = $this->serviceLocator->get('ClassicImporter\DumpManager');
 
-        if (empty($dumpManager))
-        {
-            $this->messenger()->addError('Could not find Dump Manager service.');
-            return $this->redirect()->toRoute('admin/classicimporter');
-        }
-
+        $dumpManager = null;
         try {
-            $dumpManager->createDumpDatabase($sqlFilePath, $post['db_admin'], $post['db_psk']);
+            $dumpManager = $this->serviceLocator->get('ClassicImporter\DumpManager');
+            if (empty($dumpManager))
+            {
+                $this->messenger()->addError('Could not find Dump Manager service.');
+                return $this->redirect()->toRoute('admin/classicimporter');
+            }
+            $dumpManager->createDumpDatabase($sqlFilePath);
         } catch (\RuntimeException $e) {
             $this->messenger()->addError(sprintf('Error creating dump database. %s', $e->getMessage()));
             return $this->redirect()->toRoute('admin/classicimporter');
@@ -110,7 +110,7 @@ class IndexController extends AbstractActionController
         foreach ($tables as $table) {
             if (in_array('collection_trees', $table))
             { // @todo add minimum version
-                if ($this->checkModuleActiveVersion('itemSetsTree')) {
+                if ($this->checkModuleActiveVersion('ItemSetsTree')) {
                     $form->addCollectionsTreeCheckbox();
                 }
                 else {
@@ -185,7 +185,7 @@ class IndexController extends AbstractActionController
         foreach ($tables as $table) {
             if (in_array('collection_trees', $table))
             { // @todo add minimum version
-                if ($this->checkModuleActiveVersion('itemSetsTree')) {
+                if ($this->checkModuleActiveVersion('ItemSetsTree')) {
                     $form->addCollectionsTreeCheckbox();
                 }
                 break;
@@ -290,9 +290,8 @@ class IndexController extends AbstractActionController
      */
     protected function checkModuleActiveVersion(string $module, ?string $version = null): bool
     {
-        $services = $this->getServiceLocator();
         /** @var \Omeka\Module\Manager $moduleManager */
-        $moduleManager = $services->get('Omeka\ModuleManager');
+        $moduleManager = $this->serviceLocator->get('Omeka\ModuleManager');
         $module = $moduleManager->getModule($module);
         if (!$module
             || $module->getState() !== ModuleManager::STATE_ACTIVE

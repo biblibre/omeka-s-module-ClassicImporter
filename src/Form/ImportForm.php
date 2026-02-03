@@ -45,28 +45,5 @@ class ImportForm extends Form
                 'info' => 'If you used to connect to \'https://myomeka.com/\', then put myomeka.com (or https://myomeka.com, it does not matter). It is only for text replacement purpose, it does not matter if the url still works anymore or not.', // @translate
             ]
         ]);
-
-        $this->add([
-            'name' => 'db_admin',
-            'type' => 'text',
-            'options' => [
-                'label' => 'Database admin username',
-                'info' => 'Database admin username to create the new DB that will be used for dump. Dump will NOT be executed as admin, rather as a freshly created user with permissions only on the dump DB. Very safe! Do NOT USE \'root\'. It will not work. See ReadME for more info.', // @translate
-            ],
-            'attributes' => [
-                'required' => true,
-            ],
-        ]);
-
-        $this->add([
-            'name' => 'db_psk',
-            'type' => 'password',
-            'options' => [
-                'label' => 'Database admin password',
-            ],
-            'attributes' => [
-                'required' => true,
-            ],
-        ]);
     }
 }
