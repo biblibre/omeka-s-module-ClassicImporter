@@ -8,6 +8,7 @@ use Omeka\Stdlib\Message;
 use ClassicImporter\Form\ImportForm;
 use ClassicImporter\Form\MappingForm;
 use ClassicImporter\Job\ImportFromDumpJob;
+use Omeka\Module\Manager as ModuleManager;
 use RuntimeException;
 
 class IndexController extends AbstractActionController
@@ -107,8 +108,14 @@ class IndexController extends AbstractActionController
         $form->setDomainName($post['domain_name']);
 
         foreach ($tables as $table) {
-            if (in_array('collection_trees', $table)) {
-                $form->addCollectionsTreeCheckbox();
+            if (in_array('collection_trees', $table))
+            { // @todo add minimum version
+                if ($this->checkModuleActiveVersion('itemSetsTree')) {
+                    $form->addCollectionsTreeCheckbox();
+                }
+                else {
+                    $this->messenger()->addWarning(sprintf('Dump database has a collections tree but Omeka-S does not have ItemSetsTree installed. Item sets tree will not be imported.'));
+                }
                 break;
             }
         }
@@ -176,8 +183,11 @@ class IndexController extends AbstractActionController
         $form->addResourceClassMappings($resourceClasses);
 
         foreach ($tables as $table) {
-            if (in_array('collection_trees', $table)) {
-                $form->addCollectionsTreeCheckbox();
+            if (in_array('collection_trees', $table))
+            { // @todo add minimum version
+                if ($this->checkModuleActiveVersion('itemSetsTree')) {
+                    $form->addCollectionsTreeCheckbox();
+                }
                 break;
             }
         }
@@ -273,5 +283,29 @@ class IndexController extends AbstractActionController
     protected function setJobUrl($url)
     {
         $this->jobUrl = $url;
+    }
+
+    /**
+     * Check if a module is active and optionally its minimum version.
+     */
+    protected function checkModuleActiveVersion(string $module, ?string $version = null): bool
+    {
+        $services = $this->getServiceLocator();
+        /** @var \Omeka\Module\Manager $moduleManager */
+        $moduleManager = $services->get('Omeka\ModuleManager');
+        $module = $moduleManager->getModule($module);
+        if (!$module
+            || $module->getState() !== ModuleManager::STATE_ACTIVE
+        ) {
+            return false;
+        }
+
+        if (!$version) {
+            return true;
+        }
+
+        $moduleVersion = $module->getIni('version');
+        return $moduleVersion
+            && version_compare($moduleVersion, $version, '>=');
     }
 }
