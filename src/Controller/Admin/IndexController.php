@@ -8,6 +8,7 @@ use Omeka\Stdlib\Message;
 use ClassicImporter\Form\ImportForm;
 use ClassicImporter\Form\MappingForm;
 use ClassicImporter\Job\ImportFromDumpJob;
+use ClassicImporter\Job\UndoImportJob;
 use Omeka\Module\Manager as ModuleManager;
 use RuntimeException;
 
@@ -251,7 +252,6 @@ class IndexController extends AbstractActionController
         
         return $this->redirect()->toRoute('admin/classicimporter');
     }
-
     protected function sendJob($args)
     {
         $job = $this->jobDispatcher()->dispatch(ImportFromDumpJob::class, $args);
@@ -306,5 +306,47 @@ class IndexController extends AbstractActionController
         $moduleVersion = $module->getIni('version');
         return $moduleVersion
             && version_compare($moduleVersion, $version, '>=');
+    }
+
+    public function pastImportsAction()
+    {
+        if ($this->getRequest()->isPost()) {
+            $data = $this->params()->fromPost();
+            $undoJobIds = [];
+            foreach ($data['jobs'] as $jobId) {
+                $undoJob = $this->undoJob($jobId);
+                $undoJobIds[] = $undoJob->getId();
+            }
+            $message = new Message(
+                'Undo in progress in the following jobs: %s', // @translate
+                implode(', ', $undoJobIds));
+            $this->messenger()->addSuccess($message);
+        }
+        $view = new ViewModel;
+        $page = $this->params()->fromQuery('page', 1);
+        $query = $this->params()->fromQuery() + [
+            'page' => $page,
+            'sort_by' => $this->params()->fromQuery('sort_by', 'id'),
+            'sort_order' => $this->params()->fromQuery('sort_order', 'desc'),
+        ];
+        $response = $this->api()->search('classicimporter_imports', $query);
+        $this->paginator($response->getTotalResults(), $page);
+        $view->setVariable('imports', $response->getContent());
+        return $view;
+    }
+
+    protected function undoJob($jobId)
+    {
+        $response = $this->api()->search('classicimporter_imports', ['job_id' => $jobId]);
+        $classicImport = $response->getContent()[0];
+        $dispatcher = $this->jobDispatcher();
+        $job = $dispatcher->dispatch(UndoImportJob::class, ['jobId' => $jobId]);
+        $response = $this->api()->update('classicimporter_imports',
+            $classicImport->id(),
+            [
+                'o:undo_job' => ['o:id' => $job->getId() ],
+            ]
+        );
+        return $job;
     }
 }

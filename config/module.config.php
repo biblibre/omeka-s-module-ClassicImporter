@@ -63,6 +63,14 @@ return [
                 'label' => 'ClassicImporter',
                 'route' => 'admin/classicimporter',
                 'resource' => 'ClassicImporter\Controller\Admin\Index',
+                'pages' => [
+                    [
+                        'label' => 'Past imports', // @translate
+                        'route' => 'admin/classicimporter/pastimports',
+                        'resource' => 'ClassicImporter\Controller\Admin\Index',
+                        'action' => 'pastimports',
+                    ],
+                ],
             ],
         ],
     ],
@@ -101,6 +109,17 @@ return [
                                         '__NAMESPACE__' => 'ClassicImporter\Controller\Admin',
                                         'controller' => 'Index',
                                         'action' => 'map',
+                                    ],
+                                ],
+                            ],
+                            'pastimports' => [
+                                'type' => 'Literal',
+                                'options' => [
+                                    'route' => '/pastimports',
+                                    'defaults' => [
+                                        '__NAMESPACE__' => 'ClassicImporter\Controller\Admin',
+                                        'controller' => 'Index',
+                                        'action' => 'pastimports',
                                     ],
                                 ],
                             ],

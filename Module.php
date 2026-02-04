@@ -64,9 +64,9 @@ SQL;
         $connection = $serviceLocator->get('Omeka\Connection');
 
         $sql = <<<'SQL'
-ALTER TABLE classic_importer_resource_map DROP FOREIGN KEY FK_2D78ED534C276F75;
+ALTER TABLE classic_importer_resource_map DROP FOREIGN KEY FK_10D9435789329D25;
 ALTER TABLE classic_importer_import DROP FOREIGN KEY FK_2D78ED53BE04EA9;
-ALTER TABLE classic_importer_import DROP FOREIGN KEY FK_10D9435789329D25;
+ALTER TABLE classic_importer_import DROP FOREIGN KEY FK_2D78ED534C276F75;
 DROP TABLE IF EXISTS classic_importer_resource_map;
 DROP TABLE IF EXISTS classic_importer_import;
 SQL;
