@@ -71,36 +71,44 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
-        $sql =
-            <<<'SQL'
-            SELECT DISTINCT
-                element_sets.name AS element_set_name,
-                elements.name AS element_name,
-                elements.id AS element_id
-            FROM element_texts
-                LEFT JOIN elements ON elements.id = element_texts.element_id
-                LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
-            SQL;
+        try {
+            $sql =
+                <<<'SQL'
+                SELECT DISTINCT
+                    element_sets.name AS element_set_name,
+                    elements.name AS element_name,
+                    elements.id AS element_id
+                FROM element_texts
+                    LEFT JOIN elements ON elements.id = element_texts.element_id
+                    LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
+                SQL;
 
-        $stmt = $dumpManager->getConn()->executeQuery($sql);
-        $properties = $stmt->fetchAllAssociative();
+            $stmt = $dumpManager->getConn()->executeQuery($sql);
+            $properties = $stmt->fetchAllAssociative();
 
-        $sql =
-            <<<'SQL'
-            SELECT item_types.id, item_types.name, item_types.description FROM items
-                INNER JOIN item_types ON items.item_type_id = item_types.id;
-            SQL;
+            $sql =
+                <<<'SQL'
+                SELECT item_types.id, item_types.name, item_types.description FROM items
+                    INNER JOIN item_types ON items.item_type_id = item_types.id;
+                SQL;
 
-        $stmt = $dumpManager->getConn()->executeQuery($sql);
-        $resourceClasses = $stmt->fetchAllAssociative();
+            $stmt = $dumpManager->getConn()->executeQuery($sql);
+            $resourceClasses = $stmt->fetchAllAssociative();
 
-        $sql =
-            <<<'SQL'
-            SHOW TABLES;
-            SQL;
+            $sql =
+                <<<'SQL'
+                SHOW TABLES;
+                SQL;
 
-        $stmt = $dumpManager->getConn()->executeQuery($sql);
-        $tables = $stmt->fetchAllAssociative();
+            $stmt = $dumpManager->getConn()->executeQuery($sql);
+            $tables = $stmt->fetchAllAssociative();
+        }
+
+        catch (\Exception $e) {
+            $dumpManager->deleteDumpDatabase();
+            $this->messenger()->addError(sprintf('Error: %s. Check if your dump is a valid SQL Omeka dump.', $e->getMessage())); // @translate
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
 
         $form = $this->getForm(MappingForm::class);
         $form->addPropertyMappings($properties, $this->serviceLocator->get('Omeka\ApiManager'));
@@ -148,36 +156,44 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
-        $sql =
-            <<<'SQL'
-            SELECT DISTINCT
-                element_sets.name AS element_set_name,
-                elements.name AS element_name,
-                elements.id AS element_id
-            FROM element_texts
-                LEFT JOIN elements ON elements.id = element_texts.element_id
-                LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
-            SQL;
+        try {
+            $sql =
+                <<<'SQL'
+                SELECT DISTINCT
+                    element_sets.name AS element_set_name,
+                    elements.name AS element_name,
+                    elements.id AS element_id
+                FROM element_texts
+                    LEFT JOIN elements ON elements.id = element_texts.element_id
+                    LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
+                SQL;
 
-        $stmt = $dumpManager->getConn()->executeQuery($sql);
-        $properties = $stmt->fetchAllAssociative();
+            $stmt = $dumpManager->getConn()->executeQuery($sql);
+            $properties = $stmt->fetchAllAssociative();
 
-        $sql =
-            <<<'SQL'
-            SELECT item_types.id, item_types.name, item_types.description FROM items
-                INNER JOIN item_types ON items.item_type_id = item_types.id;
-            SQL;
+            $sql =
+                <<<'SQL'
+                SELECT item_types.id, item_types.name, item_types.description FROM items
+                    INNER JOIN item_types ON items.item_type_id = item_types.id;
+                SQL;
 
-        $stmt = $dumpManager->getConn()->executeQuery($sql);
-        $resourceClasses = $stmt->fetchAllAssociative();
+            $stmt = $dumpManager->getConn()->executeQuery($sql);
+            $resourceClasses = $stmt->fetchAllAssociative();
 
-        $sql =
-            <<<'SQL'
-            SHOW TABLES;
-            SQL;
+            $sql =
+                <<<'SQL'
+                SHOW TABLES;
+                SQL;
 
-        $stmt = $dumpManager->getConn()->executeQuery($sql);
-        $tables = $stmt->fetchAllAssociative();
+            $stmt = $dumpManager->getConn()->executeQuery($sql);
+            $tables = $stmt->fetchAllAssociative();
+        }
+
+        catch (\Exception $e) {
+            $dumpManager->deleteDumpDatabase();
+            $this->messenger()->addError(sprintf('Error: %s. Check if your dump is a valid SQL Omeka dump.', $e->getMessage())); // @translate
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
 
         $form = $this->getForm(MappingForm::class);
         $form->addPropertyMappings($properties);
