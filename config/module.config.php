@@ -44,6 +44,7 @@ return [
     'api_adapters' => [
         'invokables' => [
             'classicimporter_resource_maps' => Api\Adapter\ResourceMapAdapter::class, 
+            'classicimporter_imports' => Api\Adapter\ImportAdapter::class, 
         ],
     ],
     'media_ingesters' => [

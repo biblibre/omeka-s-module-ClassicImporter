@@ -19,6 +19,17 @@ class Module extends AbstractModule
     {
         $connection = $serviceLocator->get('Omeka\Connection');
         $sql = <<<'SQL'
+CREATE TABLE classic_importer_import (
+    id INT AUTO_INCREMENT NOT NULL,
+    job_id INT NOT NULL,
+    undo_job_id INT DEFAULT NULL,
+    has_err TINYINT(1) NOT NULL,
+    stats LONGTEXT NOT NULL COMMENT '(DC2Type:json_array)',
+    UNIQUE INDEX UNIQ_2D78ED53BE04EA9 (job_id),
+    UNIQUE INDEX UNIQ_2D78ED534C276F75 (undo_job_id),
+    PRIMARY KEY(id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
+
 CREATE TABLE classic_importer_resource_map (
     id INT AUTO_INCREMENT NOT NULL,
     resource_id INT NOT NULL,
@@ -27,12 +38,17 @@ CREATE TABLE classic_importer_resource_map (
     INDEX IDX_10D9435789329D25 (resource_id),
     PRIMARY KEY(id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
+
+ALTER TABLE classic_importer_import
+    ADD CONSTRAINT FK_2D78ED53BE04EA9
+    FOREIGN KEY (job_id) REFERENCES job (id);
+ALTER TABLE classic_importer_import
+    ADD CONSTRAINT FK_2D78ED534C276F75
+    FOREIGN KEY (undo_job_id) REFERENCES job (id);
 ALTER TABLE classic_importer_resource_map
     ADD CONSTRAINT FK_10D9435789329D25
-        FOREIGN KEY (resource_id)
-        REFERENCES resource (id)
-        ON DELETE CASCADE
-;
+    FOREIGN KEY (resource_id) REFERENCES
+    resource (id) ON DELETE CASCADE;
 SQL;
         $sqls = array_filter(array_map('trim', explode(';', $sql)));
         foreach ($sqls as $sql) {
@@ -48,8 +64,11 @@ SQL;
         $connection = $serviceLocator->get('Omeka\Connection');
 
         $sql = <<<'SQL'
-ALTER TABLE classic_importer_resource_map DROP FOREIGN KEY FK_10D9435789329D25;
+ALTER TABLE classic_importer_resource_map DROP FOREIGN KEY FK_2D78ED534C276F75;
+ALTER TABLE classic_importer_import DROP FOREIGN KEY FK_2D78ED53BE04EA9;
+ALTER TABLE classic_importer_import DROP FOREIGN KEY FK_10D9435789329D25;
 DROP TABLE IF EXISTS classic_importer_resource_map;
+DROP TABLE IF EXISTS classic_importer_import;
 SQL;
 
         $sqls = array_filter(array_map('trim', explode(';', $sql)));
