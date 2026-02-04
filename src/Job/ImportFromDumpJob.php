@@ -3,21 +3,50 @@
 namespace ClassicImporter\Job;
 
 use Omeka\Job\AbstractJob;
+use ClassicImporter\Entity\ClassicImporterImport;
 
 class ImportFromDumpJob extends AbstractJob
 {
+    /**
+     * @var array
+     */
     protected $propertiesToAddLater;
+
+    /**
+     * @var ClassicImporterImport
+     */
+    protected $importRecord;
+
+    /**
+     * @var bool
+     */
+    protected $hasErr = false;
+
+    /**
+     * @var array
+     */
+    protected $stats;
 
     public function perform()
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
         $logger->info('Job started');
 
+        $importJson = [
+            'o:job' => ['o:id' => $this->job->getId()],
+            'has_err' => false,
+            'stats' => [],
+        ];
+        $response = $this->serviceLocator->get('Omeka\ApiManager')->create('classicimporter_imports', $importJson);
+        $this->importRecord = $response->getContent();
+
         $dumpManager = $this->serviceLocator->get('ClassicImporter\DumpManager');
 
         if (empty($dumpManager))
         {
             $logger->error('Could not find Dump Manager service.');
+            $this->hasErr = true;
+            $this->endJob();
             return;
         }
 
@@ -49,7 +78,7 @@ class ImportFromDumpJob extends AbstractJob
         }
         catch (\Exception $e) {
             $logger->err(sprintf("Error: %s", $e->getMessage()));
-            $dumpManager->deleteDumpDatabase();
+            $this->hasErr = true;
         }
         
         $dumpManager->deleteDumpDatabase();
@@ -57,6 +86,8 @@ class ImportFromDumpJob extends AbstractJob
         $logger->info('Dump database deleted.');
 
         $logger->info('Job ended');
+
+        $this->endJob();
     }
 
     public function importResourcesFromDump($dumpConn, $properties, $resourceClasses)
@@ -108,7 +139,6 @@ class ImportFromDumpJob extends AbstractJob
             }
         }
 
-
         foreach ($itemSets as $itemSet) {
             if (!$itemSet['parent_collection_id']) {
                 continue;
@@ -136,6 +166,8 @@ class ImportFromDumpJob extends AbstractJob
                 
                 $this->getServiceLocator()->get('Omeka\ApiManager')->create('item_sets_tree_edges',
                 ['o:item_set' => $childItemSet, 'o:parent_item_set' => $parentItemSet]);
+
+                $this->stats['item_sets_tree_edges'] = $this->stats['item_sets_tree_edges'] ? $this->stats['item_sets_tree_edges'] + 1 : 1;
             }
         }
     }
@@ -180,10 +212,14 @@ class ImportFromDumpJob extends AbstractJob
                     if ($mappedresourceName == 'item_set') {
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
                         [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+
+                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
                     else if ($mappedresourceName == 'item') {
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
                         [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+
+                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
                     else {
                         $logger = $this->getServiceLocator()->get('Omeka\Logger')->warn(
@@ -206,10 +242,14 @@ class ImportFromDumpJob extends AbstractJob
                     if ($mappedresourceName == 'item_set') {
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
                         [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+
+                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
                     else if ($mappedresourceName == 'item') {
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
                         [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+
+                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
                 }
             }
@@ -325,6 +365,8 @@ class ImportFromDumpJob extends AbstractJob
 
                     $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingItemSet->id(), 
                         $itemSetData, [], ['isPartial' => true]);
+
+                    $this->stats['item_sets'] = $this->stats['item_sets'] ? $this->stats['item_sets'] + 1 : 1;
                 }
             }
 
@@ -340,6 +382,8 @@ class ImportFromDumpJob extends AbstractJob
                         'classic_resource_id' => $itemSet['id'],
                     ]
                 );
+
+                $this->stats['item_sets'] = $this->stats['item_sets'] ? $this->stats['item_sets'] + 1 : 1;
             }
         }
 
@@ -534,6 +578,8 @@ class ImportFromDumpJob extends AbstractJob
                         'classic_resource_id' => $item['id'],
                     ]
                 );
+
+                $this->stats['items'] = $this->stats['items'] ? $this->stats['items'] + 1 : 1;
             }
             
         }
@@ -627,5 +673,15 @@ class ImportFromDumpJob extends AbstractJob
           '@id' => $value,
           'o:label' => $label,
         ];
+    }
+
+    protected function endJob()
+    {
+        $classicImportJson = [
+            'has_err' => $this->hasErr,
+            'stats' => $this->stats,
+        ];
+        $this->serviceLocator->get('Omeka\ApiManager')->update('classicimporter_imports',
+            $this->importRecord->id(), $classicImportJson);
     }
 }

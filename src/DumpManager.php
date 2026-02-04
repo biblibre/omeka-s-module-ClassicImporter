@@ -61,7 +61,7 @@ class DumpManager
     }
 
     /**
-     * Execute safely by creating a new tempuser a dump.
+     * Execute safely by using the tempdb
      * Only done once by controller
      */
     public function createDumpDatabase(string $filepath)
