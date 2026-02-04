@@ -14,6 +14,7 @@ class ResourceMapRepresentation extends AbstractEntityRepresentation
             'resource_id' => $this->resource()->id(),
             'classic_resource_id' => $this->classicResourceId(),
             'resource_name' => $this->mappedResourceName(),
+            'o:job' => $this->job()->getReference(),
         ];
     }
 
@@ -46,6 +47,12 @@ class ResourceMapRepresentation extends AbstractEntityRepresentation
         }
         return $this->getAdapter($adapterName)
             ->getRepresentation($this->resource->getResource());
+    }
+
+    public function job()
+    {
+        return $this->getAdapter('jobs')
+            ->getRepresentation($this->resource->getJob());
     }
 
     public function mappedResourceName()

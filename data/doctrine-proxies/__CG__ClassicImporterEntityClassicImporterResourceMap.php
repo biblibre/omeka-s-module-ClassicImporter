@@ -67,10 +67,10 @@ class ClassicImporterResourceMap extends \ClassicImporter\Entity\ClassicImporter
     public function __sleep()
     {
         if ($this->__isInitialized__) {
-            return ['__isInitialized__', 'id', 'resource', 'classicResourceId', 'mappedResourceName'];
+            return ['__isInitialized__', 'id', 'job', 'resource', 'classicResourceId', 'mappedResourceName'];
         }
 
-        return ['__isInitialized__', 'id', 'resource', 'classicResourceId', 'mappedResourceName'];
+        return ['__isInitialized__', 'id', 'job', 'resource', 'classicResourceId', 'mappedResourceName'];
     }
 
     /**
@@ -267,6 +267,28 @@ class ClassicImporterResourceMap extends \ClassicImporter\Entity\ClassicImporter
         $this->__initializer__ && $this->__initializer__->__invoke($this, 'setMappedResourceName', [$mappedResourceName]);
 
         return parent::setMappedResourceName($mappedResourceName);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function setJob(\Omeka\Entity\Job $job)
+    {
+
+        $this->__initializer__ && $this->__initializer__->__invoke($this, 'setJob', [$job]);
+
+        return parent::setJob($job);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getJob()
+    {
+
+        $this->__initializer__ && $this->__initializer__->__invoke($this, 'getJob', []);
+
+        return parent::getJob();
     }
 
     /**

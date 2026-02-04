@@ -380,6 +380,7 @@ class ImportFromDumpJob extends AbstractJob
                         'mapped_resource_name' => 'item_set',
                         'resource_id' => $response->id(),
                         'classic_resource_id' => $itemSet['id'],
+                        'o:job' => ['o:id' => $this->job->getId()],
                     ]
                 );
 
@@ -450,7 +451,7 @@ class ImportFromDumpJob extends AbstractJob
                 $response = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
                     [
                         'mapped_resource_name' => 'item_set',
-                        'resource_id' => $item['collection_id']
+                        'resource_id' => $item['collection_id'],
                     ]
                 )->getContent();
 
@@ -576,6 +577,7 @@ class ImportFromDumpJob extends AbstractJob
                         'mapped_resource_name' => 'item',
                         'resource_id' => $response->id(),
                         'classic_resource_id' => $item['id'],
+                        'o:job' => ['o:id' => $this->job->getId()],
                     ]
                 );
 

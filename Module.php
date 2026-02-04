@@ -32,9 +32,11 @@ CREATE TABLE classic_importer_import (
 
 CREATE TABLE classic_importer_resource_map (
     id INT AUTO_INCREMENT NOT NULL,
+    job_id INT NOT NULL, 
     resource_id INT NOT NULL,
     classic_resource_id INT NOT NULL,
     mapped_resource_name VARCHAR(255) NOT NULL,
+    INDEX IDX_10D94357BE04EA9 (job_id),
     INDEX IDX_10D9435789329D25 (resource_id),
     PRIMARY KEY(id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
@@ -45,6 +47,9 @@ ALTER TABLE classic_importer_import
 ALTER TABLE classic_importer_import
     ADD CONSTRAINT FK_2D78ED534C276F75
     FOREIGN KEY (undo_job_id) REFERENCES job (id);
+ALTER TABLE classic_importer_resource_map
+    ADD CONSTRAINT FK_10D94357BE04EA9
+    FOREIGN KEY (job_id) REFERENCES job (id);
 ALTER TABLE classic_importer_resource_map
     ADD CONSTRAINT FK_10D9435789329D25
     FOREIGN KEY (resource_id) REFERENCES
@@ -65,6 +70,7 @@ SQL;
 
         $sql = <<<'SQL'
 ALTER TABLE classic_importer_resource_map DROP FOREIGN KEY FK_10D9435789329D25;
+ALTER TABLE classic_importer_resource_map DROP FOREIGN KEY FK_10D94357BE04EA9;
 ALTER TABLE classic_importer_import DROP FOREIGN KEY FK_2D78ED53BE04EA9;
 ALTER TABLE classic_importer_import DROP FOREIGN KEY FK_2D78ED534C276F75;
 DROP TABLE IF EXISTS classic_importer_resource_map;

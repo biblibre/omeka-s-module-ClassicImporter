@@ -16,6 +16,12 @@ class ClassicImporterResourceMap extends AbstractEntity
     protected $id;
 
     /**
+     * @ManyToOne(targetEntity="Omeka\Entity\Job")
+     * @JoinColumn(nullable=false)
+     */
+    protected $job;
+
+    /**
      * @ManyToOne(
      *     targetEntity="Omeka\Entity\Resource",
      *     inversedBy=null
@@ -75,5 +81,15 @@ class ClassicImporterResourceMap extends AbstractEntity
     public function setMappedResourceName($mappedResourceName)
     {
         $this->mappedResourceName = $mappedResourceName;
+    }
+
+    public function setJob(\Omeka\Entity\Job $job)
+    {
+        $this->job = $job;
+    }
+
+    public function getJob()
+    {
+        return $this->job;
     }
 }

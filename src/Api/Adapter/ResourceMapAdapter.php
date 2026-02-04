@@ -40,6 +40,12 @@ class ResourceMapAdapter extends AbstractEntityAdapter
                 $this->createNamedParameter($qb, $query['classic_resource_id']))
             );
         }
+        if (isset($query['job_id'])) {
+            $qb->andWhere($qb->expr()->eq(
+                'omeka_root.job',
+                $this->createNamedParameter($qb, $query['job_id']))
+            );
+        }
     }
 
     public function hydrate(Request $request, EntityInterface $entity,
@@ -76,6 +82,12 @@ class ResourceMapAdapter extends AbstractEntityAdapter
         if (isset($data['classic_resource_id'])) {
             $entity->setClassicResourceId($data['classic_resource_id']);
         }
+
+        if (isset($data['o:job']['o:id'])) {
+            $job = $this->getAdapter('jobs')->findEntity($data['o:job']['o:id']);
+            $entity->setJob($job);
+        }
+
         // @TODO invalidate hydration if one of fields is missing?
         // @TODO invalidate hydration if resource_name is wrong?
     }
