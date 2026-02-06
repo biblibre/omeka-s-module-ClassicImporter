@@ -27,6 +27,11 @@ class ImportFromDumpJob extends AbstractJob
      */
     protected $stats;
 
+    /**
+     * @var int 
+     */
+    protected $updatedJobId;
+
     public function perform()
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
@@ -72,6 +77,35 @@ class ImportFromDumpJob extends AbstractJob
 
         $stmt = $dumpManager->getConn()->executeQuery($sql);
         $resourceClasses = $stmt->fetchAllAssociative();
+
+        if ($this->getArg('update') == '1') {
+
+            // @todo find better way to select latest job. Mabye let user select it
+            $query = [
+                'page' => 0,
+                'sort_by' => 'id',
+                'sort_order' => 'desc',
+            ];
+            $response = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_imports', $query)->getContent();
+
+            if (empty($response)) {
+                $logger->err(("Error: no previous imports found.")); // @translate
+                $this->hasErr = true;
+
+                $dumpManager->deleteDumpDatabase();
+
+                $logger->info('Dump database deleted.');
+
+                $logger->info('Job ended');
+
+                $this->endJob();
+
+                return;
+            }
+            else {
+                $this->updatedJobId = $response[0]->job()->id();
+            }
+        }
 
         try {
             $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses);
@@ -123,6 +157,7 @@ class ImportFromDumpJob extends AbstractJob
                 [
                     'mapped_resource_name' => 'item_set',
                     'classic_resource_id' => $itemSet['id'],
+                    'job_id' => $this->updatedJobId,
                 ]
                 )->getContent();
 
@@ -148,6 +183,7 @@ class ImportFromDumpJob extends AbstractJob
                 [
                     'mapped_resource_name' => 'item_set',
                     'classic_resource_id' => $itemSet['id'],
+                    'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
                 ]
             )->getContent();
 
@@ -155,6 +191,8 @@ class ImportFromDumpJob extends AbstractJob
                 [
                     'mapped_resource_name' => 'item_set',
                     'classic_resource_id' => $itemSet['parent_collection_id'],
+                    'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
+                    
                 ]
             )->getContent();
 
@@ -192,6 +230,7 @@ class ImportFromDumpJob extends AbstractJob
                         [
                             'mapped_resource_name' => $property['target_resource_name'],
                             'classic_resource_id' => $targetId,
+                            'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
                         ]
                     )->getContent();
 
@@ -199,6 +238,7 @@ class ImportFromDumpJob extends AbstractJob
                     [
                         'mapped_resource_name' => $property['resource_name'],
                         'classic_resource_id' => $id,
+                        'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
                     ]
                 )->getContent();
                 
@@ -380,7 +420,7 @@ class ImportFromDumpJob extends AbstractJob
                         'mapped_resource_name' => 'item_set',
                         'resource_id' => $response->id(),
                         'classic_resource_id' => $itemSet['id'],
-                        'o:job' => ['o:id' => $this->job->getId()],
+                        'o:job' => ['o:id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId()],
                     ]
                 );
 
@@ -452,6 +492,7 @@ class ImportFromDumpJob extends AbstractJob
                     [
                         'mapped_resource_name' => 'item_set',
                         'resource_id' => $item['collection_id'],
+                        'o:job' => ['o:id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId()],
                     ]
                 )->getContent();
 
@@ -468,9 +509,6 @@ class ImportFromDumpJob extends AbstractJob
                     $transformedProperty = [];
                     if ($this->getArg('transform_uris')[$property['element_id']] == '1') {
                         $transformedProperty = $this->transformValue($property['text']);
-                    }
-                    else {
-                        $this->getServiceLocator()->get('Omeka\Logger')->info("transform uri disabled on element.");
                     }
 
                     $propertyIds = $this->getArg('elements_properties')[$property['element_id']];
@@ -545,6 +583,7 @@ class ImportFromDumpJob extends AbstractJob
                     [
                         'mapped_resource_name' => 'item',
                         'classic_resource_id' => $item['id'],
+                        'job_id' => $this->updatedJobId,
                     ]
                 )->getContent();
                 if (!empty($matchingItems))
@@ -577,7 +616,7 @@ class ImportFromDumpJob extends AbstractJob
                         'mapped_resource_name' => 'item',
                         'resource_id' => $response->id(),
                         'classic_resource_id' => $item['id'],
-                        'o:job' => ['o:id' => $this->job->getId()],
+                        'o:job' => ['o:id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId()],
                     ]
                 );
 
