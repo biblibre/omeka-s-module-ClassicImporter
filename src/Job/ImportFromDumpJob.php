@@ -32,6 +32,11 @@ class ImportFromDumpJob extends AbstractJob
      */
     protected $updatedJobId;
 
+    /**
+     * @var mixed
+     */
+    protected $updatedResources;
+
     public function perform()
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
@@ -88,7 +93,15 @@ class ImportFromDumpJob extends AbstractJob
             ];
             $response = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_imports', $query)->getContent();
 
-            if (empty($response)) {
+            $lastImport = null;
+            foreach ($response as $import) {
+                if (empty($import->undoJob()) && $import->job()->args()['update'] != '1') {
+                    $lastImport = $import;
+                    break;
+                }
+            }
+
+            if (empty($lastImport)) {
                 $logger->err(("Error: no previous imports found.")); // @translate
                 $this->hasErr = true;
 
@@ -103,7 +116,7 @@ class ImportFromDumpJob extends AbstractJob
                 return;
             }
             else {
-                $this->updatedJobId = $response[0]->job()->id();
+                $this->updatedJobId = $lastImport->job()->id();
             }
         }
 
@@ -134,6 +147,35 @@ class ImportFromDumpJob extends AbstractJob
         $this->importItemsFromDump($dumpConn, $properties, $resourceClasses);
 
         $this->importUrisFromDump();
+
+        if ($this->getArg('update') == '1') {
+            $this->cleanMissingResources();
+        }
+    }
+
+    protected function cleanMissingResources()
+    {
+        $logger = $this->getServiceLocator()->get('Omeka\Logger');
+
+        $resources = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+            ['job_id' => $this->updatedJobId])->getContent();
+        
+        foreach ($resources as $resource) {
+            if ($resource->mappedResourceName() == 'item') {
+                if (!in_array($resource->classicResourceId(), $this->updatedResources['items'])) {
+                    $this->getServiceLocator()->get('Omeka\ApiManager')->delete('classicimporter_resource_maps', $resource->id());
+                    $this->getServiceLocator()->get('Omeka\ApiManager')->delete('items', $resource->resource()->id());
+                }
+            }
+            if ($resource->mappedResourceName() == 'item_set') {
+                if (!in_array($resource->classicResourceId(), $this->updatedResources['item_sets'])) {
+                    $this->getServiceLocator()->get('Omeka\ApiManager')->delete('classicimporter_resource_maps', $resource->id());
+                    $this->getServiceLocator()->get('Omeka\ApiManager')->delete('item_sets', $resource->resource()->id());
+                }
+            }
+        }
+        
+        $logger->info('Deleted resources not present in update database anymore.');
     }
 
     protected function importCollectionsTreeFromDump($dumpConn)
@@ -390,10 +432,12 @@ class ImportFromDumpJob extends AbstractJob
 
             $couldUpdate = false;
             if ($this->getArg('update') == '1') {
+                $this->updatedResources['item_sets'][] = $itemSet['id'];
                 $matchingItemSets = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
                     [
                         'mapped_resource_name' => 'item_set',
                         'classic_resource_id' => $itemSet['id'],
+                        'job_id' => $this->updatedJobId,
                     ]
                 )->getContent();
                 if (!empty($matchingItemSets))
@@ -579,6 +623,7 @@ class ImportFromDumpJob extends AbstractJob
 
             $couldUpdate = false;
             if ($this->getArg('update') == '1') {
+                $this->updatedResources['items'][] = $item['id'];
                 $matchingItems = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
                     [
                         'mapped_resource_name' => 'item',
@@ -604,6 +649,8 @@ class ImportFromDumpJob extends AbstractJob
 
                     $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingItem->id(), 
                         $itemData, [], ['isPartial' => true]);
+
+                    $this->stats['items'] = $this->stats['items'] ? $this->stats['items'] + 1 : 1;
                 }
             }
 
