@@ -292,14 +292,43 @@ class ImportFromDumpJob extends AbstractJob
                     $property['value_resource_id'] = $matchingTargetResource[0]->resource()->id();
 
                     if ($mappedresourceName == 'item_set') {
+
+                        // delete all previous properties in case we're updating. Omeka has one value per property max
+                        // if we're not updating, it does not matter that we're trying to delete previous properties for that term
+                        // because there should not be any.
+                        $values = $matchingResource[0]->resource()->value($propertyRep->term());
+                        
+                        if (!empty($values)) {
+                            if (!is_array($values)) {
+                                $values = [ $values ];
+                            }
+
+                            for ($i = 0; $i < count($values); $i++) {
+                                $this->getServiceLocator()->get('Omeka\ApiManager')->delete('values', $values[$i]->id());
+                            }
+                        }
+
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
-                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+                            [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append' ]);
 
                         $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
                     else if ($mappedresourceName == 'item') {
+                        // see comment for item set
+                        $values = $matchingResource[0]->resource()->value($propertyRep->term());
+
+                        if (!empty($values)) {
+                            if (!is_array($values)) {
+                                $values = [ $values ];
+                            }
+
+                            for ($i = 0; $i < count($values); $i++) {
+                                $this->getServiceLocator()->get('Omeka\ApiManager')->delete('values', $values[$i]->id());
+                            }
+                        }
+
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
-                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append' ]);
 
                         $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
@@ -323,13 +352,13 @@ class ImportFromDumpJob extends AbstractJob
                     ];
                     if ($mappedresourceName == 'item_set') {
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
-                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true ]);
 
                         $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
                     else if ($mappedresourceName == 'item') {
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
-                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true, 'collectionAction' => 'append']);
+                        [$propertyRep->term() => [ $property ]], [], ['isPartial' => true ]);
 
                         $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
                     }
