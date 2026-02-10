@@ -30,14 +30,6 @@ class MappingForm extends Form
                 'label' => 'Import collections?', //@translate
             ],
         ]);
-
-        $this->add([
-            'name' => 'update',
-            'type' => OptionalCheckbox::class,
-            'options' => [
-                'label' => 'Update a past import corresponding to this one?', //@translate
-            ],
-        ]);
     }
 
     public function addPropertyMappings($properties, $api = null)
@@ -203,6 +195,23 @@ class MappingForm extends Form
             'type' => OptionalCheckbox::class,
             'options' => [
                 'label' => 'Import CollectionsTree\'s tree?', // @translate
+            ]
+        ]);
+    }
+
+    public function setUpdatedJob($jobId) {
+        $this->add([
+            'name' => 'updated_job_id',
+            'type' => 'hidden',
+            'attributes' => [
+                'value' => $jobId,
+            ]
+        ]);
+        $this->add([
+            'name' => 'update',
+            'type' => 'hidden',
+            'attributes' => [
+                'value' => '1',
             ]
         ]);
     }

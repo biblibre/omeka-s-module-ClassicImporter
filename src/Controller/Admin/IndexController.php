@@ -31,8 +31,37 @@ class IndexController extends AbstractActionController
 
         $view = new ViewModel();
 
-        $view->setVariable('form', $form);
+        $request = $this->getRequest();
+        $get = $request->getQuery()->toArray();
 
+        // are we trying to update from a previous job?
+        if (empty($get['jobId'])) {
+            $view->setVariable('form', $form);
+
+            return $view;
+        }
+
+        // check for safety
+        if (!is_numeric($get['jobId']) || $get['jobId'] <= 0) {
+            $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $get['jobId'])); // @ translate
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
+            ->search('classicimporter_imports', ['job_id' => $get['jobId']])->getContent();
+
+        if (empty($updatedJob) || empty($updatedJob[0])) {
+            $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $get['jobId'])); // @ translate
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $view->setVariable('update', true);
+        $form->setUpdatedJob($get['jobId']);
+
+        $form->setValue('files_source', $updatedJob[0]->job()->args()['files_source']);
+        $form->setValue('domain_name', $updatedJob[0]->job()->args()['domain_name']);
+
+        $view->setVariable('form', $form);
         return $view;
     }
 
@@ -40,6 +69,8 @@ class IndexController extends AbstractActionController
     {
         $view = new ViewModel;
         $request = $this->getRequest();
+
+        $updatedJob = null;
 
         if (!$request->isPost()) {
             return $this->redirect()->toRoute('admin/classicimporter');
@@ -52,6 +83,19 @@ class IndexController extends AbstractActionController
         if (!$form->isValid()) {
             $this->messenger()->addFormErrors($form);
             return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        if (isset($post['updated_job_id']))
+        {
+            $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
+                ->search('classicimporter_imports', ['job_id' => $post['updated_job_id']])->getContent();
+
+            if (empty($updatedJob) || empty($updatedJob[0])) {
+                $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $post['updated_job_id'])); // @ translate
+                return $this->redirect()->toRoute('admin/classicimporter');
+            }
+
+            $updatedJob = $updatedJob[0]->job();
         }
 
         $sqlFilePath = $post['source'];
@@ -127,6 +171,15 @@ class IndexController extends AbstractActionController
                 }
                 break;
             }
+        }
+
+        if (!empty($updatedJob)) {
+            $form->setUpdatedJob($updatedJob->id());
+
+            $form->setValue('import_collections', $updatedJob->args()['import_collections']);
+            $form->setValue('elements_properties', $updatedJob->args()['elements_properties']);
+            $form->setValue('preserve_html', $updatedJob->args()['preserve_html']);
+            $form->setValue('transform_uris', $updatedJob->args()['transform_uris']);
         }
 
         $view->setVariable('form', $form);
@@ -251,7 +304,22 @@ class IndexController extends AbstractActionController
             }
         }
 
+        if (isset($post['updated_job_id']))
+        {
+            $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
+                ->search('classicimporter_imports', ['job_id' => $post['updated_job_id']])->getContent();
+
+            if (empty($updatedJob) || empty($updatedJob[0])) {
+                $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $post['updated_job_id'])); // @ translate
+                $dumpManager->deleteDumpDatabase();
+                return $this->redirect()->toRoute('admin/classicimporter');
+            }
+
+            $updatedJob = $updatedJob[0]->job();
+        }
+
         unset($post['csrf']);
+
         $this->sendJob($post);
 
         $message = new Message(
@@ -268,6 +336,7 @@ class IndexController extends AbstractActionController
         
         return $this->redirect()->toRoute('admin/classicimporter');
     }
+
     protected function sendJob($args)
     {
         $job = $this->jobDispatcher()->dispatch(ImportFromDumpJob::class, $args);

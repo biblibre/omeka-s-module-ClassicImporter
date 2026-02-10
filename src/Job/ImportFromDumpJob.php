@@ -84,24 +84,7 @@ class ImportFromDumpJob extends AbstractJob
         $resourceClasses = $stmt->fetchAllAssociative();
 
         if ($this->getArg('update') == '1') {
-
-            // @todo find better way to select latest job. Mabye let user select it
-            $query = [
-                'page' => 0,
-                'sort_by' => 'id',
-                'sort_order' => 'desc',
-            ];
-            $response = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_imports', $query)->getContent();
-
-            $lastImport = null;
-            foreach ($response as $import) {
-                if (empty($import->undoJob()) && $import->job()->args()['update'] != '1') {
-                    $lastImport = $import;
-                    break;
-                }
-            }
-
-            if (empty($lastImport)) {
+            if (empty($this->getArg('updated_job_id'))) {
                 $logger->err(("Error: no previous imports found.")); // @translate
                 $this->hasErr = true;
 
@@ -116,7 +99,18 @@ class ImportFromDumpJob extends AbstractJob
                 return;
             }
             else {
-                $this->updatedJobId = $lastImport->job()->id();
+                $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
+                    ->search('classicimporter_imports', ['job_id' => $this->getArg('updated_job_id')])->getContent();
+
+                if (empty($updatedJob) || empty($updatedJob[0])) {
+                    $this->hasErr = true;
+                    $logger->err(sprintf('Invalid import job id \'%s\'.', $this->getArg('updated_job_id'))); // @ translate
+                    $dumpManager->deleteDumpDatabase();
+
+                    $this->endJob();
+                }
+
+                $this->updatedJobId = $updatedJob[0]->job()->id();
             }
         }
 

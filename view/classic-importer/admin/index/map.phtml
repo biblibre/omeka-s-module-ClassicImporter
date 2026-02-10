@@ -21,7 +21,21 @@ $escapeHtml = $this->plugin('escapeHtml');
         // do nothing, it means import_collections_tree was not added to the form. @TODO make this cleaner in the future.
     }
 ?>
-<?= $this->formRow($form->get('update')); ?>
+<?php
+    try {
+        $update = $form->get('update');
+        if ($update) {
+            echo $this->formRow($update);
+        }
+        $updatedJobId = $form->get('updated_job_id');
+        if ($updatedJobId) {
+            echo $this->formRow($updatedJobId);
+        }
+    }
+    catch (\Laminas\Form\Exception\InvalidArgumentException $e) {
+        // do nothing, it means form is not an update. @TODO make this cleaner in the future.
+    }
+?>
 
 <fieldset id='page-actions'>
     <button type="submit"><?php echo $this->translate('Next'); ?></button>

@@ -25,6 +25,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/classicimporter.css', '
                 <th><?php echo $escape($this->translate('Result'));?></th>
                 <th><?php echo $escape($this->translate('Status'));?></th>
                 <th><?php echo $escape($this->translate('Owner'));?></th>
+                <th><?php echo $escape($this->translate('Update')); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -113,6 +114,19 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/classicimporter.css', '
                 echo $this->hyperlink($owner->name(), $this->url('admin/id', array('controller' => 'user', 'action' => 'show', 'id' => $owner->id())));
             endif;
             ?></td>
+            <td>
+                <?php if (!$isUpdate) {
+                    echo $this->hyperlink(
+                        ' ' . $this->translate('Update import') . ' ',
+                        $this->url('admin/classicimporter', [], [ 'query' => [ 'jobId' => $job->id() ] ] ),
+                        [
+                            'controller' => 'item',
+                            'action' => 'add',
+                            'class' => 'o-icon-upgrade',
+                        ],
+                    );
+                } ?>
+            </td>
         </tr>
         <?php endforeach; ?>
         </tbody>

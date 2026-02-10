@@ -46,4 +46,14 @@ class ImportForm extends Form
             ]
         ]);
     }
+
+    public function setUpdatedJob($jobId) {
+        $this->add([
+            'name' => 'updated_job_id',
+            'type' => 'hidden',
+            'attributes' => [
+                'value' => $jobId,
+            ]
+        ]);
+    }
 }
