@@ -563,7 +563,7 @@ class ImportFromDumpJob extends AbstractJob
                 $response = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
                     [
                         'mapped_resource_name' => 'item_set',
-                        'resource_id' => $item['collection_id'],
+                        'classic_resource_id' => $item['collection_id'],
                         'o:job' => ['o:id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId()],
                     ]
                 )->getContent();
@@ -757,7 +757,7 @@ class ImportFromDumpJob extends AbstractJob
 
         $urlPath = explode('/', $urlParsed['path']);
 
-        if (count($urlPath) == 4 && $urlParsed['hostname'] == $this->getArg('domaine_name') && $urlPath[2] == 'show') {
+        if (count($urlPath) == 4 && $urlParsed['host'] == $this->getArg('domain_name') && $urlPath[2] == 'show') {
             switch ($urlPath[1]) {
                 case 'items':
                     return [
