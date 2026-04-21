@@ -77,7 +77,7 @@ class Local implements IngesterInterface
         }
 
         $tempFile = $this->tempFileFactory->build();
-        $tempFile->setSourceName(isset($data['original_filename']) ? $data['original_filename'] : $data['ingest_filename']);
+        $tempFile->setSourceName($data['original_filename'] ?? $data['ingest_filename']);
 
         // Copy the file to a temp path, so it is managed as a real temp file
         copy($realPath, $tempFile->getTempPath());
@@ -87,7 +87,7 @@ class Local implements IngesterInterface
         }
 
         if (!array_key_exists('o:source', $data)) {
-            $media->setSource(isset($data['original_filename']) ? $data['original_filename'] : $data['ingest_filename']);
+            $media->setSource($data['original_filename'] ?? $data['ingest_filename']);
         }
 
         $storeOriginal = $data['store_original'] ?? true;
@@ -111,7 +111,6 @@ class Local implements IngesterInterface
             'id' => 'media-local-ingest-filename-__index__',
             'required' => true,
         ]);
-
 
         $radio = new Radio('o:media[__index__][original_file_action]');
         $radio->setOptions([

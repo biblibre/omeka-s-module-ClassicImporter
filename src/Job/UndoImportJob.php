@@ -46,9 +46,7 @@ class UndoImportJob extends AbstractJob
                     // Nothing to do: already deleted.
                 }
             }
-        }
-
-        else {
+        } else {
             $logger->info('No resources found to undo.'); // @translate
         }
     }

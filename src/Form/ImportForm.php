@@ -20,7 +20,7 @@ class ImportForm extends Form
             ],
             'attributes' => [
                 'required' => false,
-                'placeholder' => '/home/omekas/classic_files/original/'
+                'placeholder' => '/home/omekas/classic_files/original/',
             ],
         ]);
 

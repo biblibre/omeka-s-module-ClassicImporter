@@ -37,10 +37,10 @@ class DumpManager
         ) {
             try {
                 $this->dumpConn = new \Doctrine\DBAL\Connection([
-                    'dbname'   => $tempdb["database"],
-                    'user'     => $tempdb["username"],
+                    'dbname' => $tempdb["database"],
+                    'user' => $tempdb["username"],
                     'password' => $tempdb["password"],
-                    'host'     => $tempdb["hostname"],
+                    'host' => $tempdb["hostname"],
                 ], $this->serviceLocator->get('Omeka\Connection')->getDriver());
             } catch (\Doctrine\DBAL\Exception\ConnectionException $e) {
                 $this->dumpConn = null;
@@ -50,7 +50,7 @@ class DumpManager
             $this->tempUsername = $tempdb["username"];
             $this->tempHostname = $tempdb["hostname"];
             $this->tempPassword = $tempdb["password"];
-            $this->tempDbName   = $tempdb["database"];
+            $this->tempDbName = $tempdb["database"];
         } else {
             $this->dumpConn = null;
             $this->errorMessage = "Invalid dump credentials config."; // @translate
@@ -75,7 +75,7 @@ class DumpManager
 
         $this->dumpConn->executeStatement('SET FOREIGN_KEY_CHECKS=0');
 
-        $stmt  = $this->dumpConn->executeQuery('SHOW TABLES');
+        $stmt = $this->dumpConn->executeQuery('SHOW TABLES');
         $tables = $stmt->fetchAllAssociative();
 
         if (!empty($tables)) {

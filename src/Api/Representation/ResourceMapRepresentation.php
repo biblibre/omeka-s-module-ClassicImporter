@@ -2,9 +2,9 @@
 namespace ClassicImporter\Api\Representation;
 
 use Omeka\Api\Representation\AbstractEntityRepresentation;
-use \Omeka\Api\Representation\ItemRepresentation;
-use \Omeka\Api\Representation\ItemSetRepresentation;
-use \Omeka\Api\Representation\MediaRepresentation;
+use Omeka\Api\Representation\ItemRepresentation;
+use Omeka\Api\Representation\ItemSetRepresentation;
+use Omeka\Api\Representation\MediaRepresentation;
 
 class ResourceMapRepresentation extends AbstractEntityRepresentation
 {

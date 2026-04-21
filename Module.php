@@ -4,9 +4,6 @@ namespace ClassicImporter;
 
 use Omeka\Module\AbstractModule;
 use Laminas\ServiceManager\ServiceLocatorInterface;
-use Laminas\Mvc\Controller\AbstractController;
-use Laminas\View\Renderer\PhpRenderer;
-use Composer\Semver\Comparator;
 
 class Module extends AbstractModule
 {
@@ -82,6 +79,4 @@ SQL;
             $connection->exec($sql);
         }
     }
-};
-
-?>
+}

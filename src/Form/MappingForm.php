@@ -22,7 +22,7 @@ class MappingForm extends Form
             'name' => 'domain_name',
             'type' => 'hidden',
         ]);
-        
+
         $this->add([
             'name' => 'import_collections',
             'type' => OptionalCheckbox::class,
@@ -37,16 +37,14 @@ class MappingForm extends Form
         foreach ($properties as $property) {
             $defaultMapping = null;
 
-            if (!empty($api))
-            {
+            if (!empty($api)) {
                 // keep only alphanumeric characters
                 $propertyName = preg_replace("/[^a-zA-Z0-9 ]+/", "", strtolower($property['element_name']));
 
                 $nextShouldBeUpper = false;
                 for ($i = 0; $i < strlen($propertyName); $i++) {
                     $char = $propertyName[$i];
-                    if ($nextShouldBeUpper)
-                    {
+                    if ($nextShouldBeUpper) {
                         $propertyName[$i] == strtoupper($char);
                         $nextShouldBeUpper = false;
                     }
@@ -70,7 +68,7 @@ class MappingForm extends Form
                     // more than two matches found for the same property.
                     // common for things like dcterms:title and foaf:title
                     // dcterms takes priority if vocab of origin was Dublin Core
-                    else if ($property['element_set_name'] == 'Dublin Core') {
+                    elseif ($property['element_set_name'] == 'Dublin Core') {
                         $dublinCoreProperty = null;
 
                         foreach ($omekasProperties as $omekasProperty) {
@@ -103,9 +101,7 @@ class MappingForm extends Form
                         'multiple' => true,
                     ],
                 ]);
-            }
-
-            else {
+            } else {
                 $this->add([
                     'name' => 'elements_properties[' . $property['element_id'] . ']',
                     'type' => OptionalPropertySelect::class,
@@ -166,8 +162,7 @@ class MappingForm extends Form
                         'value' => $defaultMapping->id(),
                     ],
                 ]);
-            }
-            else {
+            } else {
                 $this->add([
                     'name' => 'types_classes[' . $resourceClass['id'] . ']',
                     'type' => OptionalResourceClassSelect::class,
@@ -182,37 +177,41 @@ class MappingForm extends Form
         }
     }
 
-    public function setFilesSource($filesSource) {
+    public function setFilesSource($filesSource)
+    {
         $this->get('files_source')->setValue($filesSource);
     }
-    public function setDomainName($domainName) {
+    public function setDomainName($domainName)
+    {
         $this->get('domain_name')->setValue($domainName);
     }
 
-    public function addCollectionsTreeCheckbox() {
+    public function addCollectionsTreeCheckbox()
+    {
         $this->add([
             'name' => 'import_collections_tree',
             'type' => OptionalCheckbox::class,
             'options' => [
                 'label' => 'Import CollectionsTree\'s tree?', // @translate
-            ]
+            ],
         ]);
     }
 
-    public function setUpdatedJob($jobId) {
+    public function setUpdatedJob($jobId)
+    {
         $this->add([
             'name' => 'updated_job_id',
             'type' => 'hidden',
             'attributes' => [
                 'value' => $jobId,
-            ]
+            ],
         ]);
         $this->add([
             'name' => 'update',
             'type' => 'hidden',
             'attributes' => [
                 'value' => '1',
-            ]
+            ],
         ]);
     }
 }
