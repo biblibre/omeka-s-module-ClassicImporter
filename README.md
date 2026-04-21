@@ -11,16 +11,13 @@ See general end user documentation for [Installing a module](http://omeka.org/s/
 Usage
 -----
 
-To use the module, you first need an Omeka (classic) instance of your choice, then you need to create database dump from that.
-The module is not made to create the dump, the administrator needs to do it by themself.
+To use the module, you first need an Omeka (classic) instance of your choice, then you need to create a database dump from that.
+The module is not made to create the dump; the administrator needs to do it themselves.
 
-The dump then needs to be uploaded to the Omeka-S instance (anywhere Omeka-S can reach).
-The module also is not made to upload the dump.sql file to the Omeka-S instance. It needs to be done by an administrator beforehand.
+**Step 1 — Create the temporary database**
 
-The media files contained in omeka/files/original must also be uploaded (anywhere Omeka-S can reach) if you want the media to be imported.
-
-Lastly, a MySQL temporary database with a user having permissions on it must be created to import the dump.
-Here is what the SQL commands should look like more or less, to be executed as root:
+A dedicated MySQL database must be created to receive the Omeka Classic dump.
+Here is what the SQL commands should look like, to be executed as root:
 ```bash
 sudo mysql -uroot
 [MySQL] > CREATE USER 'tempdb'@'%' IDENTIFIED BY 'password';
@@ -28,10 +25,13 @@ sudo mysql -uroot
 [MySQL] > GRANT ALL PRIVILEGES ON tempdb.* TO 'tempdb'@'%';
 ```
 
-It is needed because the default user (omekas) does not have enough permissions to do that.
-If you wish to use a different name than "tempdb" or "password", please change the config/module.config.php file accordingly.
+It is needed because the default Omeka-S user does not have enough permissions to do that.
+
+**Step 2 — Configure the credentials**
+
+Declare the temporary database credentials in `config/local.config.php` (not `module.config.php`, to keep secrets out of version control):
 ```php
-    // This is in config/module.config.php
+    // This is in config/local.config.php
     'classicimporter' => [
         'tempdb_credentials' => [
             "username" => "tempdb",
@@ -42,7 +42,25 @@ If you wish to use a different name than "tempdb" or "password", please change t
     ]
 ```
 
-Once all done, you may find, in the "ClassicImporter" tab, a form to get the path to the dump file, the path to the media files and the Omeka URL. The Omeka URL does not need to work, it is used to replace the text like my-omeka-classic.com to my-omeka-s.com in resource values. Fill in the form. You will then be able to see what properties and resource classes can be mapped to import them. All values set on properties that are NOT mapped will NOT be imported!
+**Step 3 — Load the dump into the temporary database**
+
+Because SQL dumps can be very large, the module does not load the dump file itself.
+The administrator must import it directly via the MySQL CLI:
+```bash
+mysql -u tempdb -ppassword -h localhost tempdb < /path/to/dump.sql
+```
+
+**Step 4 — Upload media files (optional)**
+
+The media files contained in `omeka/files/original` must also be uploaded to the Omeka-S instance (anywhere Omeka-S can reach on disk) if you want media to be imported.
+
+**Step 5 — Run the import from the interface**
+
+In the "ClassicImporter" tab you will find a form with two optional fields:
+- **Path to the original media files** — leave empty to skip media import
+- **URL of the old Omeka Classic instance** — does not need to still work; it is used to detect and convert internal links (e.g. `my-omeka-classic.com/items/show/5`) into links to the corresponding imported resource in Omeka-S
+
+Fill in the form and click **Next**. You will then be able to see what properties and resource classes can be mapped. All values set on properties that are **not** mapped will **not** be imported!
 
 Use "Import collections" if you want to import item sets.
 Use "Update" if you want to update from your precedent dump import. Previously imported resources with matching ids will therefore be updated accordingly.
