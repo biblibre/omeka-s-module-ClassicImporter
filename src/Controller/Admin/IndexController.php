@@ -30,6 +30,36 @@ class IndexController extends AbstractActionController
 
         $view = new ViewModel();
 
+        $request = $this->getRequest();
+        $get = $request->getQuery()->toArray();
+
+        // are we trying to update from a previous job?
+        if (empty($get['jobId'])) {
+            $view->setVariable('form', $form);
+
+            return $view;
+        }
+
+        // check for safety
+        if (!is_numeric($get['jobId']) || $get['jobId'] <= 0) {
+            $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $get['jobId'])); // @translate
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
+            ->search('classicimporter_imports', ['job_id' => $get['jobId']])->getContent();
+
+        if (empty($updatedJob) || empty($updatedJob[0])) {
+            $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $get['jobId'])); // @translate
+            return $this->redirect()->toRoute('admin/classicimporter');
+        }
+
+        $jobArgs = $updatedJob[0]->job()->args();
+        $form->setUpdatedJob($get['jobId']);
+        $form->get('files_source')->setValue($jobArgs['files_source'] ?? '');
+        $form->get('domain_name')->setValue($jobArgs['domain_name'] ?? '');
+
+        $view->setVariable('update', true);
         $view->setVariable('form', $form);
 
         return $view;

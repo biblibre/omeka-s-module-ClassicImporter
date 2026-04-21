@@ -3,7 +3,11 @@ $form->prepare();
 $escapeHtml = $this->plugin('escapeHtml');
 ?>
 
-<?php echo $this->pageTitle($this->translate('Import from Omeka Classic'), 1, $this->translate('Omeka-S Classic Importer')); ?>
+<?php echo $this->pageTitle(
+    empty($update) ?
+        $this->translate('Import from Omeka Classic') :
+        $this->translate('Update from Omeka Classic'),
+    1, $this->translate('Omeka-S Classic Importer')); ?>
 
 <div class="messages">
     <div class="success">

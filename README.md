@@ -1,7 +1,7 @@
 ClassicImporter (module for Omeka S)
 ===============================
 
-[ClassicImporter] is a module for [Omeka S] and will allow an administrator to import item sets, items and media from a database dump of an Omeka instance.
+[ClassicImporter] is a module for [Omeka S] and will allow an administrator to import item sets, items and media from a database dump of an Omeka Classic instance.
 
 Installation
 ------------
@@ -62,22 +62,60 @@ In the "ClassicImporter" tab you will find a form with two optional fields:
 
 Fill in the form and click **Next**. You will then be able to see what properties and resource classes can be mapped. All values set on properties that are **not** mapped will **not** be imported!
 
-Use "Import collections" if you want to import item sets.
-Use "Update" if you want to update from your precedent dump import. Previously imported resources with matching ids will therefore be updated accordingly.
-Use "Import Item sets tree" if the dump contains CollectionsTree information that can be imported.
+On the mapping screen:
 
-For each property, you may select "Clean HTML" to clear HTML content from the property values. If `dcterms:title` is `<strong>Hello!</strong>`, "Clean HTML" will only keep `Hello !`.
+- **Import collections** — check this to import Omeka Classic collections as Omeka-S item sets.
+- **Import Item sets tree** — only appears if the dump contains CollectionsTree data and the [ItemSetsTree](https://github.com/biblibre/omeka-s-module-ItemSetsTree) module is active. Imports the collection hierarchy.
+- **Update** — see the *Updating a previous import* section below.
 
-For each property, you can also check "Map URIs". This means that if `dcterms:description` is `my-omeka-classic.com/show/items/5/`, the value will be imported as a URI to the corresponding imported item. If unchecked, the link will be kept like it was.
-Checking this checkbox will also import values like `<a href="https://example.com">My link!</a>` as a link rather than HTML content.
+For each property, you may select **Clean HTML** to strip HTML tags from the property values. For example, if `dcterms:title` is `<strong>Hello!</strong>`, "Clean HTML" will only keep `Hello!`.
 
-Finally, if no errors, all the imported resources should be on your Omeka-S instance.
+For each property, you can also check **Map URIs**. This means that if a value contains a link to the old Omeka Classic instance (e.g. `https://my-omeka-classic.com/items/show/5`), the value will be converted into a link to the corresponding imported resource in Omeka-S. If unchecked, the link is kept as a plain URI.
+This option also converts values like `<a href="https://example.com">My link!</a>` into a proper URI value rather than raw HTML content.
+
+Finally, if no errors occur, all imported resources will be available in your Omeka-S instance.
+
+Updating a previous import
+---------------------------
+
+If you have already run an import and want to re-import from a refreshed dump (e.g. the source Omeka Classic database has changed), you can update the previously imported resources instead of creating duplicates.
+
+**Step 1** — Drop and reload the temporary database with the new dump:
+```bash
+# Drop all tables in the tempdb
+mysql -u tempdb -ppassword -h localhost tempdb -e "SET FOREIGN_KEY_CHECKS=0; $(mysql -u tempdb -ppassword -h localhost -N -e "SELECT GROUP_CONCAT('DROP TABLE IF EXISTS \`', table_name, '\`' SEPARATOR '; ') FROM information_schema.tables WHERE table_schema='tempdb';" 2>/dev/null); SET FOREIGN_KEY_CHECKS=1;"
+
+# Or more simply: drop and recreate the database
+sudo mysql -uroot -e "DROP DATABASE tempdb; CREATE DATABASE tempdb; GRANT ALL PRIVILEGES ON tempdb.* TO 'tempdb'@'%';"
+
+# Then reload the new dump
+mysql -u tempdb -ppassword -h localhost tempdb < /path/to/new_dump.sql
+```
+
+**Step 2** — In the **Past imports** tab, click **Update import** next to the import you wish to update. This will pre-fill the form with the parameters of the original import.
+
+**Step 3** — On the mapping screen, the **Update** checkbox will be pre-checked. Click **Next** to confirm and start the update job.
+
+During an update:
+- Resources that still exist in the new dump are **updated in place**.
+- Resources that no longer exist in the new dump are **deleted** from Omeka-S.
+- New resources are **created**.
+
+Past imports and Undo
+---------------------
+
+The **Past imports** tab lists all previous import and update jobs with their statistics (number of item sets, items, URIs imported or updated).
+
+From this view you can:
+- **Undo** a past import by checking its checkbox and clicking Submit. This will delete all resources that were created during that import. Update jobs cannot be undone (the checkbox is disabled).
+- **Update import** — re-run an import against a refreshed dump (see above).
+- Access the **Job details** and **Log** for each job for debugging purposes.
 
 Example
 -------
 
-![Screenshot of loading from a dump file.](screenshots/loading_from_a_dump_file.png)
-![Screenshot of mapping properties](screenshots/mapping_properties.png)
+![Screenshot of the import form.](screenshots/loading_from_a_dump_file.png)
+![Screenshot of the mapping screen.](screenshots/mapping_properties.png)
 
 Warning
 -------
