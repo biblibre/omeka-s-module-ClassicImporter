@@ -12,24 +12,11 @@ class ImportForm extends Form
         $this->setAttribute('method', 'post');
 
         $this->add([
-            'name' => 'source',
-            'type' => 'text',
-            'options' => [
-                'label' => 'File path to the dump', //@translate
-                'info' => 'The dump.sql file must be uploaded beforehand to the instance. Once done, write the path to the file.', // @translate
-            ],
-            'attributes' => [
-                'required' => true,
-                'placeholder' => '/home/omekas/dump.sql'
-            ],
-        ]);
-
-        $this->add([
             'name' => 'files_source',
             'type' => 'text',
             'options' => [
                 'label' => 'File path to the original media files', //@translate
-                'info' => 'If not set, media will NOT be imported. The \'files\' file must be uploaded beforehand to the instance. It can be found in the Omeka instance in omeka/files/original. Once done, write the path to the directoy.', // @translate
+                'info' => 'If not set, media will NOT be imported. The \'files\' directory must be uploaded beforehand to the instance. It can be found in the Omeka Classic instance under omeka/files/original. Once done, write the path to the directory.', // @translate
             ],
             'attributes' => [
                 'required' => false,
@@ -41,19 +28,9 @@ class ImportForm extends Form
             'name' => 'domain_name',
             'type' => 'text',
             'options' => [
-                'label' => 'What used to be the url of the Omeka instance', // @translate
+                'label' => 'What used to be the url of the Omeka Classic instance', // @translate
                 'info' => 'If you used to connect to \'https://myomeka.com/\', then put myomeka.com (or https://myomeka.com, it does not matter). It is only for text replacement purpose, it does not matter if the url still works anymore or not.', // @translate
-            ]
-        ]);
-    }
-
-    public function setUpdatedJob($jobId) {
-        $this->add([
-            'name' => 'updated_job_id',
-            'type' => 'hidden',
-            'attributes' => [
-                'value' => $jobId,
-            ]
+            ],
         ]);
     }
 }

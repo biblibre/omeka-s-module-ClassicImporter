@@ -10,7 +10,6 @@ use ClassicImporter\Form\MappingForm;
 use ClassicImporter\Job\ImportFromDumpJob;
 use ClassicImporter\Job\UndoImportJob;
 use Omeka\Module\Manager as ModuleManager;
-use RuntimeException;
 
 class IndexController extends AbstractActionController
 {
@@ -31,37 +30,8 @@ class IndexController extends AbstractActionController
 
         $view = new ViewModel();
 
-        $request = $this->getRequest();
-        $get = $request->getQuery()->toArray();
-
-        // are we trying to update from a previous job?
-        if (empty($get['jobId'])) {
-            $view->setVariable('form', $form);
-
-            return $view;
-        }
-
-        // check for safety
-        if (!is_numeric($get['jobId']) || $get['jobId'] <= 0) {
-            $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $get['jobId'])); // @ translate
-            return $this->redirect()->toRoute('admin/classicimporter');
-        }
-
-        $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
-            ->search('classicimporter_imports', ['job_id' => $get['jobId']])->getContent();
-
-        if (empty($updatedJob) || empty($updatedJob[0])) {
-            $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $get['jobId'])); // @ translate
-            return $this->redirect()->toRoute('admin/classicimporter');
-        }
-
-        $view->setVariable('update', true);
-        $form->setUpdatedJob($get['jobId']);
-
-        $form->setValue('files_source', $updatedJob[0]->job()->args()['files_source']);
-        $form->setValue('domain_name', $updatedJob[0]->job()->args()['domain_name']);
-
         $view->setVariable('form', $form);
+
         return $view;
     }
 
@@ -69,8 +39,6 @@ class IndexController extends AbstractActionController
     {
         $view = new ViewModel;
         $request = $this->getRequest();
-
-        $updatedJob = null;
 
         if (!$request->isPost()) {
             return $this->redirect()->toRoute('admin/classicimporter');
@@ -85,37 +53,26 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
-        if (isset($post['updated_job_id']))
-        {
-            $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
-                ->search('classicimporter_imports', ['job_id' => $post['updated_job_id']])->getContent();
-
-            if (empty($updatedJob) || empty($updatedJob[0])) {
-                $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $post['updated_job_id'])); // @ translate
-                return $this->redirect()->toRoute('admin/classicimporter');
-            }
-
-            $updatedJob = $updatedJob[0]->job();
+        $dumpManager = $this->serviceLocator->get('ClassicImporter\DumpManager');
+        if (empty($dumpManager)) {
+            $this->messenger()->addError('Could not find Dump Manager service.');
+            return $this->redirect()->toRoute('admin/classicimporter');
         }
 
-        $sqlFilePath = $post['source'];
-
-
-        $dumpManager = null;
-        try {
-            $dumpManager = $this->serviceLocator->get('ClassicImporter\DumpManager');
-            if (empty($dumpManager))
-            {
-                $this->messenger()->addError('Could not find Dump Manager service.');
-                return $this->redirect()->toRoute('admin/classicimporter');
-            }
-            $dumpManager->createDumpDatabase($sqlFilePath);
-        } catch (\RuntimeException $e) {
-            $this->messenger()->addError(sprintf('Error creating dump database. %s', $e->getMessage()));
+        if ($dumpManager->getConn() === null) {
+            $this->messenger()->addError('Could not connect to the temporary dump database. Check the credentials in config/local.config.php under classicimporter.tempdb_credentials.'); // @translate
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
         try {
+            $stmt = $dumpManager->getConn()->executeQuery('SHOW TABLES');
+            $tables = $stmt->fetchAllAssociative();
+
+            if (empty($tables)) {
+                $this->messenger()->addError('The temporary dump database is empty. Please import the SQL dump directly into the database configured under classicimporter.tempdb_credentials before proceeding.'); // @translate
+                return $this->redirect()->toRoute('admin/classicimporter');
+            }
+
             $sql =
                 <<<'SQL'
                 SELECT DISTINCT
@@ -138,19 +95,8 @@ class IndexController extends AbstractActionController
 
             $stmt = $dumpManager->getConn()->executeQuery($sql);
             $resourceClasses = $stmt->fetchAllAssociative();
-
-            $sql =
-                <<<'SQL'
-                SHOW TABLES;
-                SQL;
-
-            $stmt = $dumpManager->getConn()->executeQuery($sql);
-            $tables = $stmt->fetchAllAssociative();
-        }
-
-        catch (\Exception $e) {
-            $dumpManager->deleteDumpDatabase();
-            $this->messenger()->addError(sprintf('Error: %s. Check if your dump is a valid SQL Omeka dump.', $e->getMessage())); // @translate
+        } catch (\Exception $e) {
+            $this->messenger()->addError(sprintf('Error: %s. Check if your dump database is a valid Omeka Classic SQL dump.', $e->getMessage())); // @translate
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
@@ -161,25 +107,14 @@ class IndexController extends AbstractActionController
         $form->setDomainName($post['domain_name']);
 
         foreach ($tables as $table) {
-            if (in_array('collection_trees', $table))
-            { // @todo add minimum version
+            if (in_array('collection_trees', $table)) { // @todo add minimum version
                 if ($this->checkModuleActiveVersion('ItemSetsTree')) {
                     $form->addCollectionsTreeCheckbox();
-                }
-                else {
+                } else {
                     $this->messenger()->addWarning(sprintf('Dump database has a collections tree but Omeka-S does not have ItemSetsTree installed. Item sets tree will not be imported.'));
                 }
                 break;
             }
-        }
-
-        if (!empty($updatedJob)) {
-            $form->setUpdatedJob($updatedJob->id());
-
-            $form->setValue('import_collections', $updatedJob->args()['import_collections']);
-            $form->setValue('elements_properties', $updatedJob->args()['elements_properties']);
-            $form->setValue('preserve_html', $updatedJob->args()['preserve_html']);
-            $form->setValue('transform_uris', $updatedJob->args()['transform_uris']);
         }
 
         $view->setVariable('form', $form);
@@ -203,8 +138,7 @@ class IndexController extends AbstractActionController
 
         $post = $request->getPost()->toArray();
 
-        if (empty($dumpManager))
-        {
+        if (empty($dumpManager)) {
             $this->messenger()->addError('Could not find Dump Manager service.');
             return $this->redirect()->toRoute('admin/classicimporter');
         }
@@ -240,11 +174,8 @@ class IndexController extends AbstractActionController
 
             $stmt = $dumpManager->getConn()->executeQuery($sql);
             $tables = $stmt->fetchAllAssociative();
-        }
-
-        catch (\Exception $e) {
-            $dumpManager->deleteDumpDatabase();
-            $this->messenger()->addError(sprintf('Error: %s. Check if your dump is a valid SQL Omeka dump.', $e->getMessage())); // @translate
+        } catch (\Exception $e) {
+            $this->messenger()->addError(sprintf('Error: %s. Check if your dump database is a valid Omeka Classic SQL dump.', $e->getMessage())); // @translate
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
@@ -253,8 +184,7 @@ class IndexController extends AbstractActionController
         $form->addResourceClassMappings($resourceClasses);
 
         foreach ($tables as $table) {
-            if (in_array('collection_trees', $table))
-            { // @todo add minimum version
+            if (in_array('collection_trees', $table)) { // @todo add minimum version
                 if ($this->checkModuleActiveVersion('ItemSetsTree')) {
                     $form->addCollectionsTreeCheckbox();
                 }
@@ -265,61 +195,47 @@ class IndexController extends AbstractActionController
         $form->setData($post);
         if (!$form->isValid()) {
             $this->messenger()->addFormErrors($form);
-            $dumpManager->deleteDumpDatabase();
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
         // It is optional. Won't import media if not set.
-        if (!empty($post['files_source']))
-        {
+        if (!empty($post['files_source'])) {
             $post['files_source'] = trim($post['files_source']);
             if ($post['files_source'][strlen($post['files_source']) - 1] != '/') {
                 $post['files_source'] = $post['files_source'] . '/';
             }
-            if (!is_dir($post['files_source']))
-            {
+            if (!is_dir($post['files_source'])) {
                 $this->messenger()->addError('Given media folders does not exist on disk.'); // @translate
-                $dumpManager->deleteDumpDatabase();
                 return $this->redirect()->toRoute('admin/classicimporter');
             }
         }
 
-        if (!empty($post['domain_name']))
-        {
+        if (!empty($post['domain_name'])) {
             $post['domain_name'] = trim($post['domain_name']);
-            if (str_contains($post['domain_name'], '://'))
-            {
+            if (str_contains($post['domain_name'], '://')) {
                 $domainName = explode('://', $post['domain_name']);
                 if (count($domainName) == 2) {
                     $post['domain_name'] = trim($domainName[1], '/');
-                }
-                else {
+                } else {
                     $this->messenger()->addError(sprintf('Given url \'%s\' for old omeka instance is invalid.', $post['domain_name'])); // @translate
-                    $dumpManager->deleteDumpDatabase();
                     return $this->redirect()->toRoute('admin/classicimporter');
                 }
-            }
-            else {
+            } else {
                 $post['domain_name'] = trim($post['domain_name'], '/');
             }
         }
 
-        if (isset($post['updated_job_id']))
-        {
+        if (isset($post['updated_job_id'])) {
             $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
                 ->search('classicimporter_imports', ['job_id' => $post['updated_job_id']])->getContent();
 
             if (empty($updatedJob) || empty($updatedJob[0])) {
-                $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $post['updated_job_id'])); // @ translate
-                $dumpManager->deleteDumpDatabase();
+                $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $post['updated_job_id'])); // @translate
                 return $this->redirect()->toRoute('admin/classicimporter');
             }
-
-            $updatedJob = $updatedJob[0]->job();
         }
 
         unset($post['csrf']);
-
         $this->sendJob($post);
 
         $message = new Message(
@@ -333,7 +249,7 @@ class IndexController extends AbstractActionController
 
         $message->setEscapeHtml(false);
         $this->messenger()->addSuccess($message);
-        
+
         return $this->redirect()->toRoute('admin/classicimporter');
     }
 
@@ -350,6 +266,7 @@ class IndexController extends AbstractActionController
         $this->setJobId($job->getId());
         $this->setJobUrl($jobUrl);
     }
+
     protected function getJobId()
     {
         return $this->jobId;
@@ -429,7 +346,7 @@ class IndexController extends AbstractActionController
         $response = $this->api()->update('classicimporter_imports',
             $classicImport->id(),
             [
-                'o:undo_job' => ['o:id' => $job->getId() ],
+                'o:undo_job' => ['o:id' => $job->getId()],
             ]
         );
         return $job;
