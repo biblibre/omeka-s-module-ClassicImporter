@@ -10,7 +10,7 @@ class ImportFromDumpJob extends AbstractJob
     /**
      * @var array
      */
-    protected $propertiesToAddLater;
+    protected $propertiesToAddLater = [];
 
     /**
      * @var ClassicImporterImport
@@ -26,6 +26,11 @@ class ImportFromDumpJob extends AbstractJob
      * @var array
      */
     protected $stats;
+
+    /**
+     * @var array
+     */
+    protected $propertyTermCache = [];
 
     /**
      * @var int 
@@ -258,6 +263,7 @@ class ImportFromDumpJob extends AbstractJob
                 $targetId = $property['value_resource_id'];
 
                 $propertyRep = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $id)->getContent();
+                $this->propertyTermCache[$id] = $propertyRep->term();
                 if (empty($propertyRep)) {
                     continue;
                 }
@@ -420,7 +426,7 @@ class ImportFromDumpJob extends AbstractJob
 
                     foreach ($propertyIds as $propertyId)
                     {
-                        $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
+                        $term = $this->getPropertyTerm($propertyId);
 
                         // empty means no transformation was used
                         if (empty($transformedProperty)) {
@@ -591,7 +597,7 @@ class ImportFromDumpJob extends AbstractJob
 
                     foreach ($propertyIds as $propertyId)
                     {
-                        $term = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $propertyId)->getContent()->term();
+                        $term = $this->getPropertyTerm($propertyId);
 
                         // empty means no transformation was used
                         if (empty($transformedProperty)) {
@@ -705,6 +711,19 @@ class ImportFromDumpJob extends AbstractJob
             $logger->info('Media succesfully imported.');
         }
         $logger->info('Items successfully imported.');
+    }
+
+    protected function getPropertyTerm($propertyId): string
+    {
+        if (!isset($this->propertyTermCache[$propertyId])) {
+            $this->propertyTermCache[$propertyId] = $this->getServiceLocator()
+                ->get('Omeka\ApiManager')
+                ->read('properties', $propertyId)
+                ->getContent()
+                ->term();
+        }
+
+        return $this->propertyTermCache[$propertyId];
     }
 
     protected function cleanTextFromHTML($text) {
