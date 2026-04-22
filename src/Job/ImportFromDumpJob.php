@@ -64,25 +64,28 @@ class ImportFromDumpJob extends AbstractJob
             return;
         }
 
-        $sql =
-            <<<'SQL'
-            SELECT DISTINCT
-                element_sets.name AS element_set_name,
-                elements.name AS element_name,
-                elements.id AS element_id
-            FROM element_texts
-                LEFT JOIN elements ON elements.id = element_texts.element_id
-                LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
-            SQL;
+        $p = $dumpManager->getTablePrefix();
+
+        $sql = sprintf(
+            'SELECT DISTINCT
+                %1$selement_sets.name AS element_set_name,
+                %1$selements.name AS element_name,
+                %1$selements.id AS element_id
+            FROM %1$selement_texts
+                LEFT JOIN %1$selements ON %1$selements.id = %1$selement_texts.element_id
+                LEFT JOIN %1$selement_sets ON %1$selements.element_set_id = %1$selement_sets.id',
+            $p
+        );
 
         $stmt = $dumpManager->getConn()->executeQuery($sql);
         $properties = $stmt->fetchAllAssociative();
 
-        $sql =
-            <<<'SQL'
-            SELECT item_types.id, item_types.name, item_types.description FROM items
-                INNER JOIN item_types ON items.item_type_id = item_types.id;
-            SQL;
+        $sql = sprintf(
+            'SELECT %1$sitem_types.id, %1$sitem_types.name, %1$sitem_types.description
+            FROM %1$sitems
+                INNER JOIN %1$sitem_types ON %1$sitems.item_type_id = %1$sitem_types.id',
+            $p
+        );
 
         $stmt = $dumpManager->getConn()->executeQuery($sql);
         $resourceClasses = $stmt->fetchAllAssociative();
@@ -118,7 +121,7 @@ class ImportFromDumpJob extends AbstractJob
         }
 
         try {
-            $this->importResourcesFromDump($dumpManager->getConn(), $properties, $resourceClasses);
+            $this->importResourcesFromDump($dumpManager, $properties, $resourceClasses);
         } catch (\Exception $e) {
             $logger->err(sprintf("Error: %s", $e->getMessage()));
             $this->hasErr = true;
@@ -133,15 +136,15 @@ class ImportFromDumpJob extends AbstractJob
         $this->endJob();
     }
 
-    public function importResourcesFromDump($dumpConn, $properties, $resourceClasses)
+    public function importResourcesFromDump($dumpManager, $properties, $resourceClasses)
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
 
         if ($this->getArg('import_collections') == '1') {
-            $this->importItemSetsFromDump($dumpConn, $properties, $resourceClasses);
+            $this->importItemSetsFromDump($dumpManager, $properties, $resourceClasses);
         }
 
-        $this->importItemsFromDump($dumpConn, $properties, $resourceClasses);
+        $this->importItemsFromDump($dumpManager, $properties, $resourceClasses);
 
         $this->importUrisFromDump();
 
@@ -175,14 +178,18 @@ class ImportFromDumpJob extends AbstractJob
         $logger->info('Deleted resources not present in update database anymore.');
     }
 
-    protected function importCollectionsTreeFromDump($dumpConn)
+    protected function importCollectionsTreeFromDump($dumpManager)
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
-        $sql =
-            <<<'SQL'
-            SELECT collections.id, collection_trees.parent_collection_id FROM collections
-            LEFT JOIN collection_trees ON collections.id = collection_trees.collection_id
-            SQL;
+        $p = $dumpManager->getTablePrefix();
+        $dumpConn = $dumpManager->getConn();
+
+        $sql = sprintf(
+            'SELECT %1$scollections.id, %1$scollection_trees.parent_collection_id
+            FROM %1$scollections
+            LEFT JOIN %1$scollection_trees ON %1$scollections.id = %1$scollection_trees.collection_id',
+            $p
+        );
 
         $stmt = $dumpConn->executeQuery($sql);
         $itemSets = $stmt->fetchAllAssociative();
@@ -349,16 +356,6 @@ class ImportFromDumpJob extends AbstractJob
     {
         $em = $this->getServiceLocator()->get('Omeka\EntityManager');
 
-        /*$dql = '
-            DELETE FROM Omeka\Entity\Value r
-            WITH v.property_id = :property_id AND v.resource_id = :resource_id
-        ';
-
-        $query = $em->createQuery($dql);
-        $query->setParameter('resource_id', $resource->id());
-        $query->setParameter('property_id', $property->id());
-        $results = $query->getResult();*/
-
         $builder = $em->createQueryBuilder();
         $builder->delete(\Omeka\Entity\Value::class, 'root')
             ->where('root.resource = :resource_id')
@@ -371,27 +368,27 @@ class ImportFromDumpJob extends AbstractJob
         $em->flush();
     }
 
-    protected function importItemSetsFromDump($dumpConn, $properties, $resourceClasses)
+    protected function importItemSetsFromDump($dumpManager, $properties, $resourceClasses)
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
+        $p = $dumpManager->getTablePrefix();
+        $dumpConn = $dumpManager->getConn();
 
-        $sql =
-            <<<'SQL'
-            SELECT * FROM collections;
-            SQL;
+        $sql = sprintf('SELECT * FROM %scollections', $p);
 
         $stmt = $dumpConn->executeQuery($sql);
         $itemSets = $stmt->fetchAllAssociative();
 
         foreach ($itemSets as $itemSet) {
             $sql = sprintf(
-            <<<'SQL'
-            SELECT element_texts.element_id, element_texts.text, elements.name FROM collections
-                LEFT JOIN element_texts AS element_texts ON element_texts.record_id = collections.id
-                LEFT JOIN elements AS elements ON elements.id = element_texts.element_id
-                WHERE element_texts.record_type = 'Collection'
-                AND collections.id = %s;
-            SQL, $itemSet['id']
+                'SELECT %1$selement_texts.element_id, %1$selement_texts.text, %1$selements.name
+                FROM %1$scollections
+                    LEFT JOIN %1$selement_texts ON %1$selement_texts.record_id = %1$scollections.id
+                    LEFT JOIN %1$selements ON %1$selements.id = %1$selement_texts.element_id
+                WHERE %1$selement_texts.record_type = \'Collection\'
+                AND %1$scollections.id = %2$s',
+                $p,
+                $itemSet['id']
             );
 
             $stmt = $dumpConn->executeQuery($sql);
@@ -495,43 +492,45 @@ class ImportFromDumpJob extends AbstractJob
 
         $logger->info('Item sets successfully imported.');
         if ($this->getArg('import_collections_tree', '0') == '1') {
-            $this->importCollectionsTreeFromDump($dumpConn);
+            $this->importCollectionsTreeFromDump($dumpManager);
             $logger->info('Item sets tree successfully imported.');
         }
     }
 
-    protected function importItemsFromDump($dumpConn, $properties, $resourceClasses)
+    protected function importItemsFromDump($dumpManager, $properties, $resourceClasses)
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
+        $p = $dumpManager->getTablePrefix();
+        $dumpConn = $dumpManager->getConn();
 
-        $sql =
-            <<<'SQL'
-            SELECT * FROM items;
-            SQL;
+        $sql = sprintf('SELECT * FROM %sitems', $p);
 
         $stmt = $dumpConn->executeQuery($sql);
         $items = $stmt->fetchAllAssociative();
 
         foreach ($items as $item) {
             $sql = sprintf(
-            <<<'SQL'
-            SELECT element_texts.element_id, element_texts.text, elements.name FROM items
-                LEFT JOIN element_texts AS element_texts ON element_texts.record_id = items.id
-                LEFT JOIN elements AS elements ON elements.id = element_texts.element_id
-                WHERE element_texts.record_type = 'Item'
-                AND items.id = %s;
-            SQL, $item['id']
+                'SELECT %1$selement_texts.element_id, %1$selement_texts.text, %1$selements.name
+                FROM %1$sitems
+                    LEFT JOIN %1$selement_texts ON %1$selement_texts.record_id = %1$sitems.id
+                    LEFT JOIN %1$selements ON %1$selements.id = %1$selement_texts.element_id
+                WHERE %1$selement_texts.record_type = \'Item\'
+                AND %1$sitems.id = %2$s',
+                $p,
+                $item['id']
             );
 
             $stmt = $dumpConn->executeQuery($sql);
             $propertyValues = $stmt->fetchAllAssociative();
 
             $sql = sprintf(
-            <<<'SQL'
-            SELECT files.id, files.mime_type, files.filename, files.original_filename, files.alt_text, files.size FROM files
-                WHERE files.stored = 1
-                AND files.item_id = %s;
-            SQL, $item['id']
+                'SELECT %1$sfiles.id, %1$sfiles.mime_type, %1$sfiles.filename,
+                    %1$sfiles.original_filename, %1$sfiles.alt_text, %1$sfiles.size
+                FROM %1$sfiles
+                WHERE %1$sfiles.stored = 1
+                AND %1$sfiles.item_id = %2$s',
+                $p,
+                $item['id']
             ); // @TODO check what happens when files.stored is 0.
 
             $stmt = $dumpConn->executeQuery($sql);

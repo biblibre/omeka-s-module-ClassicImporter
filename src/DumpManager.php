@@ -16,6 +16,8 @@ class DumpManager
 
     protected $tempPassword;
 
+    protected $tablePrefix;
+
     protected $errorMessage;
 
     public function __construct($serviceLocator)
@@ -51,10 +53,22 @@ class DumpManager
             $this->tempHostname = $tempdb["hostname"];
             $this->tempPassword = $tempdb["password"];
             $this->tempDbName = $tempdb["database"];
+
+            $this->tablePrefix = $tempdb["table_prefix"] ?? 'omeka_';
         } else {
             $this->dumpConn = null;
             $this->errorMessage = "Invalid dump credentials config."; // @translate
         }
+    }
+
+    public function t(string $tableName): string
+    {
+        return $this->tablePrefix . $tableName;
+    }
+
+    public function getTablePrefix(): string
+    {
+        return $this->tablePrefix ?? 'omeka_';
     }
 
     public function getConn(): \Doctrine\DBAL\Connection|null

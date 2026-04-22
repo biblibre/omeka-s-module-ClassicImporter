@@ -135,6 +135,7 @@ return [
             "password" => "password",
             "hostname" => "localhost",
             "database" => "tempdb",
+            "table_prefix" => "omeka_",
         ],
     ],
 ];
