@@ -26,7 +26,8 @@ class UndoImportJob extends AbstractJob
                     break;
                 }
                 try {
-                    $api->delete('classicimporter_resource_maps', $resource->id());
+                    // Delete the Omeka-S resource first, so that if it fails
+                    // the resource_map is preserved and the undo can be retried.
                     switch ($resource->mappedResourceName()) {
                         case 'item':
                             $api->delete('items', $resource->resource()->id());
@@ -41,9 +42,9 @@ class UndoImportJob extends AbstractJob
                             $logger->warn(sprintf('Invalid resource name: %s.', $resource->mappedResourceName())); // @translate
                             break;
                     }
+                    $api->delete('classicimporter_resource_maps', $resource->id());
                 } catch (\Exception $e) {
                     $logger->warn(sprintf('Error when trying to delete resource: %s.', $e->getMessage())); // @translate
-                    // Nothing to do: already deleted.
                 }
             }
         } else {

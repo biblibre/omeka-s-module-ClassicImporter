@@ -10,8 +10,8 @@ class DumpManagerFactory implements FactoryInterface
 {
     public function __invoke(ContainerInterface $container, $requestedName, array $options = null)
     {
-        $solrClient = new DumpManager($container);
+        $dumpManager = new DumpManager($container);
 
-        return $solrClient;
+        return $dumpManager;
     }
 }

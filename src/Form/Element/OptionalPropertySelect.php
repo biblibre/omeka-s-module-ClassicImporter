@@ -18,4 +18,16 @@ class OptionalPropertySelect extends PropertySelect
         $inputSpecification['required'] = !empty($this->attributes['required']);
         return $inputSpecification;
     }
+
+    public function getValueOptions(): array
+    {
+        $query = $this->getOption('query');
+        if (!is_array($query)) {
+            $query = [];
+        }
+        $query['per_page'] = 0;
+        $this->setOption('query', $query);
+
+        return parent::getValueOptions();
+    }
 }

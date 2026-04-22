@@ -40,7 +40,6 @@ class IndexController extends AbstractActionController
             return $view;
         }
 
-        // check for safety
         if (!is_numeric($get['jobId']) || $get['jobId'] <= 0) {
             $this->messenger()->addError(sprintf('Invalid import job id \'%s\'.', $get['jobId'])); // @translate
             return $this->redirect()->toRoute('admin/classicimporter');
@@ -103,25 +102,29 @@ class IndexController extends AbstractActionController
                 return $this->redirect()->toRoute('admin/classicimporter');
             }
 
-            $sql =
-                <<<'SQL'
-                SELECT DISTINCT
-                    element_sets.name AS element_set_name,
-                    elements.name AS element_name,
-                    elements.id AS element_id
-                FROM element_texts
-                    LEFT JOIN elements ON elements.id = element_texts.element_id
-                    LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
-                SQL;
+            $p = $dumpManager->getTablePrefix();
+
+            $sql = sprintf(
+                'SELECT DISTINCT
+                    %1$selement_sets.name AS element_set_name,
+                    %1$selements.name AS element_name,
+                    %1$selements.id AS element_id
+                FROM %1$selement_texts
+                    LEFT JOIN %1$selements ON %1$selements.id = %1$selement_texts.element_id
+                    LEFT JOIN %1$selement_sets ON %1$selements.element_set_id = %1$selement_sets.id
+                ORDER BY element_set_name, element_name',
+                $p
+            );
 
             $stmt = $dumpManager->getConn()->executeQuery($sql);
             $properties = $stmt->fetchAllAssociative();
 
-            $sql =
-                <<<'SQL'
-                SELECT item_types.id, item_types.name, item_types.description FROM items
-                    INNER JOIN item_types ON items.item_type_id = item_types.id;
-                SQL;
+            $sql = sprintf(
+                'SELECT %1$sitem_types.id, %1$sitem_types.name, %1$sitem_types.description
+                FROM %1$sitems
+                    INNER JOIN %1$sitem_types ON %1$sitems.item_type_id = %1$sitem_types.id',
+                $p
+            );
 
             $stmt = $dumpManager->getConn()->executeQuery($sql);
             $resourceClasses = $stmt->fetchAllAssociative();
@@ -137,7 +140,7 @@ class IndexController extends AbstractActionController
         $form->setDomainName($post['domain_name']);
 
         foreach ($tables as $table) {
-            if (in_array('collection_trees', $table)) { // @todo add minimum version
+            if (in_array($p . 'collection_trees', $table)) { // @todo add minimum version
                 if ($this->checkModuleActiveVersion('ItemSetsTree')) {
                     $form->addCollectionsTreeCheckbox();
                 } else {
@@ -173,36 +176,35 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('admin/classicimporter');
         }
 
+        $p = $dumpManager->getTablePrefix();
+
         try {
-            $sql =
-                <<<'SQL'
-                SELECT DISTINCT
-                    element_sets.name AS element_set_name,
-                    elements.name AS element_name,
-                    elements.id AS element_id
-                FROM element_texts
-                    LEFT JOIN elements ON elements.id = element_texts.element_id
-                    LEFT JOIN element_sets ON elements.element_set_id = element_sets.id;
-                SQL;
+            $sql = sprintf(
+                'SELECT DISTINCT
+                    %1$selement_sets.name AS element_set_name,
+                    %1$selements.name AS element_name,
+                    %1$selements.id AS element_id
+                FROM %1$selement_texts
+                    LEFT JOIN %1$selements ON %1$selements.id = %1$selement_texts.element_id
+                    LEFT JOIN %1$selement_sets ON %1$selements.element_set_id = %1$selement_sets.id
+                ORDER BY element_set_name, element_name',
+                $p
+            );
 
             $stmt = $dumpManager->getConn()->executeQuery($sql);
             $properties = $stmt->fetchAllAssociative();
 
-            $sql =
-                <<<'SQL'
-                SELECT item_types.id, item_types.name, item_types.description FROM items
-                    INNER JOIN item_types ON items.item_type_id = item_types.id;
-                SQL;
+            $sql = sprintf(
+                'SELECT %1$sitem_types.id, %1$sitem_types.name, %1$sitem_types.description
+                FROM %1$sitems
+                    INNER JOIN %1$sitem_types ON %1$sitems.item_type_id = %1$sitem_types.id',
+                $p
+            );
 
             $stmt = $dumpManager->getConn()->executeQuery($sql);
             $resourceClasses = $stmt->fetchAllAssociative();
 
-            $sql =
-                <<<'SQL'
-                SHOW TABLES;
-                SQL;
-
-            $stmt = $dumpManager->getConn()->executeQuery($sql);
+            $stmt = $dumpManager->getConn()->executeQuery('SHOW TABLES');
             $tables = $stmt->fetchAllAssociative();
         } catch (\Exception $e) {
             $this->messenger()->addError(sprintf('Error: %s. Check if your dump database is a valid Omeka Classic SQL dump.', $e->getMessage())); // @translate
@@ -214,7 +216,7 @@ class IndexController extends AbstractActionController
         $form->addResourceClassMappings($resourceClasses);
 
         foreach ($tables as $table) {
-            if (in_array('collection_trees', $table)) { // @todo add minimum version
+            if (in_array($p . 'collection_trees', $table)) { // @todo add minimum version
                 if ($this->checkModuleActiveVersion('ItemSetsTree')) {
                     $form->addCollectionsTreeCheckbox();
                 }
@@ -345,7 +347,7 @@ class IndexController extends AbstractActionController
         if ($this->getRequest()->isPost()) {
             $data = $this->params()->fromPost();
             $undoJobIds = [];
-            foreach ($data['jobs'] as $jobId) {
+            foreach ($data['jobs'] ?? [] as $jobId) {
                 $undoJob = $this->undoJob($jobId);
                 $undoJobIds[] = $undoJob->getId();
             }
@@ -370,7 +372,11 @@ class IndexController extends AbstractActionController
     protected function undoJob($jobId)
     {
         $response = $this->api()->search('classicimporter_imports', ['job_id' => $jobId]);
-        $classicImport = $response->getContent()[0];
+        $content = $response->getContent();
+        if (empty($content)) {
+            throw new \RuntimeException(sprintf('No import found for job id %s.', $jobId));
+        }
+        $classicImport = $content[0];
         $dispatcher = $this->jobDispatcher();
         $job = $dispatcher->dispatch(UndoImportJob::class, ['jobId' => $jobId]);
         $response = $this->api()->update('classicimporter_imports',

@@ -80,7 +80,13 @@ class Local implements IngesterInterface
         $tempFile->setSourceName($data['original_filename'] ?? $data['ingest_filename']);
 
         // Copy the file to a temp path, so it is managed as a real temp file
-        copy($realPath, $tempFile->getTempPath());
+        if (!copy($realPath, $tempFile->getTempPath())) {
+            $errorStore->addError(
+                'ingest_filename',
+                sprintf('Failed to copy file "%s" to temporary path.', $filepath) // @translate
+            );
+            return;
+        }
 
         if (!$this->validator->validate($tempFile, $errorStore)) {
             return;

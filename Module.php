@@ -60,9 +60,6 @@ SQL;
 
     public function uninstall(ServiceLocatorInterface $serviceLocator)
     {
-        $dumpManager = $serviceLocator->get('ClassicImporter\DumpManager');
-        $dumpManager->deleteDumpDatabase();
-
         $connection = $serviceLocator->get('Omeka\Connection');
 
         $sql = <<<'SQL'

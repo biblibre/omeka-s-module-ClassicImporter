@@ -38,42 +38,70 @@ class MappingForm extends Form
             $defaultMapping = null;
 
             if (!empty($api)) {
-                // keep only alphanumeric characters
-                $propertyName = preg_replace("/[^a-zA-Z0-9 ]+/", "", strtolower($property['element_name']));
+                $localNameOverrides = [
+                    // Dublin Core element name => dcterms local_name
+                    'Alternative Title' => 'alternative',
+                    'Date Available' => 'available',
+                    'Date Created' => 'created',
+                    'Date Issued' => 'issued',
+                    'Date Modified' => 'modified',
+                    'Date Valid' => 'valid',
+                    'Date Accepted' => 'dateAccepted',
+                    'Date Copyrighted' => 'dateCopyrighted',
+                    'Date Submitted' => 'dateSubmitted',
+                    'Spatial Coverage' => 'spatial',
+                    'Temporal Coverage' => 'temporal',
+                    'Audience Education Level' => 'educationLevel',
+                    'Table Of Contents' => 'tableOfContents',
+                    'Conforms To' => 'conformsTo',
+                    'Has Format' => 'hasFormat',
+                    'Has Part' => 'hasPart',
+                    'Has Version' => 'hasVersion',
+                    'Is Format Of' => 'isFormatOf',
+                    'Is Part Of' => 'isPartOf',
+                    'Is Referenced By' => 'isReferencedBy',
+                    'Is Replaced By' => 'isReplacedBy',
+                    'Is Required By' => 'isRequiredBy',
+                    'Is Version Of' => 'isVersionOf',
+                    'Accrual Method' => 'accrualMethod',
+                    'Accrual Periodicity' => 'accrualPeriodicity',
+                    'Accrual Policy' => 'accrualPolicy',
+                    'Access Rights' => 'accessRights',
+                    'Bibliographic Citation' => 'bibliographicCitation',
+                    'Instructional Method' => 'instructionalMethod',
+                    'Rights Holder' => 'rightsHolder',
+                ];
 
-                $nextShouldBeUpper = false;
-                for ($i = 0; $i < strlen($propertyName); $i++) {
-                    $char = $propertyName[$i];
-                    if ($nextShouldBeUpper) {
-                        $propertyName[$i] == strtoupper($char);
-                        $nextShouldBeUpper = false;
-                    }
-                    if ($char == ' ') {
-                        $nextShouldBeUpper = true;
-                    }
+                $vocabElementKey = $property['element_set_name'] . '|' . $property['element_name'];
+                $elementKey = $property['element_name'];
+
+                if (isset($localNameOverrides[$vocabElementKey])) {
+                    $omekasProperties = $api->search('properties',
+                        ['local_name' => $localNameOverrides[$vocabElementKey]]
+                    )->getContent();
+                } elseif (isset($localNameOverrides[$elementKey])) {
+                    $omekasProperties = $api->search('properties',
+                        ['local_name' => $localNameOverrides[$elementKey]]
+                    )->getContent();
+                } else {
+                    // CamelCase conversion of the element name
+                    $propertyName = preg_replace('/\s+/', '', lcfirst(ucwords(
+                        preg_replace("/[^a-zA-Z0-9 ]+/", "", strtolower($property['element_name']))
+                    )));
+
+                    $omekasProperties = $api->search('properties',
+                        ['local_name' => $propertyName]
+                    )->getContent();
                 }
-
-                // remove spaces
-                $propertyName = preg_replace('/\s+/', '', $propertyName);
-
-                $omekasProperties = $api->search('properties',
-                    ['local_name' => $propertyName]
-                )->getContent();
 
                 if (!empty($omekasProperties)) {
                     if (count($omekasProperties) == 1) {
                         $defaultMapping = $omekasProperties[0];
-                    }
-
-                    // more than two matches found for the same property.
-                    // common for things like dcterms:title and foaf:title
-                    // dcterms takes priority if vocab of origin was Dublin Core
-                    elseif ($property['element_set_name'] == 'Dublin Core') {
+                    } elseif ($property['element_set_name'] == 'Dublin Core') {
                         $dublinCoreProperty = null;
 
                         foreach ($omekasProperties as $omekasProperty) {
                             if ($omekasProperty->vocabulary()->prefix() == 'dcterms') {
-                                // edge case where there are two dcterms matches...
                                 if (!empty($dublinCoreProperty)) {
                                     $dublinCoreProperty = null;
                                     break;
@@ -181,6 +209,7 @@ class MappingForm extends Form
     {
         $this->get('files_source')->setValue($filesSource);
     }
+
     public function setDomainName($domainName)
     {
         $this->get('domain_name')->setValue($domainName);

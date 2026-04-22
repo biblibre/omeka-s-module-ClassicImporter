@@ -64,19 +64,4 @@ class ResourceMapRepresentation extends AbstractEntityRepresentation
     {
         return $this->resource->getClassicResourceId();
     }
-
-    /* no admin url needed
-    public function adminUrl($action = null, $canonical = false)
-    {
-        $url = $this->getViewHelper('Url');
-        return $url(
-            'admin/classicimporter/tempdb',
-            [
-                'controller' => $this->getControllerName(),
-                'action' => $action,
-                'id' => $this->id(),
-            ],
-            ['force_canonical' => $canonical]
-        );
-    }*/
 }

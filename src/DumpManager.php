@@ -81,29 +81,24 @@ class DumpManager
         return $this->errorMessage ?? '';
     }
 
-    public function deleteDumpDatabase(): void
+    // Add column checks to verify column existence in the dump database (old Omeka Classic versions)
+    public function hasColumn(string $table, string $column): bool
     {
         if (empty($this->dumpConn)) {
-            return;
+            return false;
         }
 
-        $this->dumpConn->executeStatement('SET FOREIGN_KEY_CHECKS=0');
-
-        $stmt = $this->dumpConn->executeQuery('SHOW TABLES');
-        $tables = $stmt->fetchAllAssociative();
-
-        if (!empty($tables)) {
-            $tableNames = [];
-            foreach ($tables as $table) {
-                $tableNames[] = '`' . $table[array_key_first($table)] . '`';
-            }
-
-            $this->dumpConn->executeQuery(sprintf(
-                'DROP TABLE IF EXISTS %s',
-                implode(', ', $tableNames)
-            ));
+        try {
+            $stmt = $this->dumpConn->executeQuery(
+                'SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                AND table_name = ?
+                AND column_name = ?',
+                [$table, $column]
+            );
+            return (int) $stmt->fetchOne() > 0;
+        } catch (\Exception $e) {
+            return false;
         }
-
-        $this->dumpConn->executeStatement('SET FOREIGN_KEY_CHECKS=1');
     }
 }

@@ -25,7 +25,7 @@ class ImportFromDumpJob extends AbstractJob
     /**
      * @var array
      */
-    protected $stats;
+    protected $stats = [];
 
     /**
      * @var array
@@ -38,9 +38,9 @@ class ImportFromDumpJob extends AbstractJob
     protected $updatedJobId;
 
     /**
-     * @var mixed
+     * @var array
      */
-    protected $updatedResources;
+    protected $updatedResources = ['items' => [], 'item_sets' => []];
 
     public function perform()
     {
@@ -57,8 +57,8 @@ class ImportFromDumpJob extends AbstractJob
 
         $dumpManager = $this->serviceLocator->get('ClassicImporter\DumpManager');
 
-        if (empty($dumpManager)) {
-            $logger->error('Could not find Dump Manager service.');
+        if ($dumpManager->getConn() === null) {
+            $logger->err('Could not connect to the Omeka Classic database: ' . $dumpManager->getErrorMessage());
             $this->hasErr = true;
             $this->endJob();
             return;
@@ -95,10 +95,6 @@ class ImportFromDumpJob extends AbstractJob
                 $logger->err(("Error: no previous imports found.")); // @translate
                 $this->hasErr = true;
 
-                $dumpManager->deleteDumpDatabase();
-
-                $logger->info('Dump database deleted.');
-
                 $logger->info('Job ended');
 
                 $this->endJob();
@@ -111,9 +107,8 @@ class ImportFromDumpJob extends AbstractJob
                 if (empty($updatedJob) || empty($updatedJob[0])) {
                     $this->hasErr = true;
                     $logger->err(sprintf('Invalid import job id \'%s\'.', $this->getArg('updated_job_id'))); // @ translate
-                    $dumpManager->deleteDumpDatabase();
-
                     $this->endJob();
+                    return;
                 }
 
                 $this->updatedJobId = $updatedJob[0]->job()->id();
@@ -126,10 +121,6 @@ class ImportFromDumpJob extends AbstractJob
             $logger->err(sprintf("Error: %s", $e->getMessage()));
             $this->hasErr = true;
         }
-
-        $dumpManager->deleteDumpDatabase();
-
-        $logger->info('Dump database deleted.');
 
         $logger->info('Job ended');
 
@@ -226,20 +217,19 @@ class ImportFromDumpJob extends AbstractJob
             }
 
             $matchingResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
-                [
-                    'mapped_resource_name' => 'item_set',
-                    'classic_resource_id' => $itemSet['id'],
-                    'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
-                ]
+            [
+                'mapped_resource_name' => 'item_set',
+                'classic_resource_id' => $itemSet['id'],
+                'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
+            ]
             )->getContent();
 
             $matchingTargetResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
-                [
-                    'mapped_resource_name' => 'item_set',
-                    'classic_resource_id' => $itemSet['parent_collection_id'],
-                    'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
-
-                ]
+            [
+                'mapped_resource_name' => 'item_set',
+                'classic_resource_id' => $itemSet['parent_collection_id'],
+                'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
+            ]
             )->getContent();
 
             if (!empty($matchingResource) && !empty($matchingTargetResource)) {
@@ -251,7 +241,7 @@ class ImportFromDumpJob extends AbstractJob
                 $this->getServiceLocator()->get('Omeka\ApiManager')->create('item_sets_tree_edges',
                 ['o:item_set' => $childItemSet, 'o:parent_item_set' => $parentItemSet]);
 
-                $this->stats['item_sets_tree_edges'] = $this->stats['item_sets_tree_edges'] ? $this->stats['item_sets_tree_edges'] + 1 : 1;
+                $this->stats['item_sets_tree_edges'] = ($this->stats['item_sets_tree_edges'] ?? 0) + 1;
             }
         }
     }
@@ -268,10 +258,10 @@ class ImportFromDumpJob extends AbstractJob
                 $targetId = $property['value_resource_id'];
 
                 $propertyRep = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $id)->getContent();
-                $this->propertyTermCache[$id] = $propertyRep->term();
                 if (empty($propertyRep)) {
                     continue;
                 }
+                $this->propertyTermCache[$id] = $propertyRep->term();
 
                 $matchingTargetResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
                     [
@@ -289,8 +279,9 @@ class ImportFromDumpJob extends AbstractJob
                     ]
                 )->getContent();
 
+                $mappedresourceName = $property['resource_name'];
+
                 if (!empty($matchingResource) && !empty($matchingTargetResource)) {
-                    $mappedresourceName = $property['resource_name'];
                     unset($property['mapped_resource_name']);
                     unset($property['o:label']);
                     unset($property['@id']);
@@ -302,14 +293,14 @@ class ImportFromDumpJob extends AbstractJob
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
                         [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
 
-                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
+                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
                     } elseif ($mappedresourceName == 'item') {
                         $this->clearResourcePropertyValues($matchingResource[0], $propertyRep);
 
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
                         [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
 
-                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
+                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
                     } else {
                         $logger = $this->getServiceLocator()->get('Omeka\Logger')->warn(
                             sprintf('Invalid target resource type for URI : \'%s.\'', $mappedresourceName));
@@ -334,14 +325,14 @@ class ImportFromDumpJob extends AbstractJob
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
                         [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
 
-                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
+                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
                     } elseif ($mappedresourceName == 'item') {
                         $this->clearResourcePropertyValues($matchingResource[0], $propertyRep);
 
                         $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
                         [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
 
-                        $this->stats['uris'] = $this->stats['uris'] ? $this->stats['uris'] + 1 : 1;
+                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
                     }
                 }
             }
@@ -386,12 +377,11 @@ class ImportFromDumpJob extends AbstractJob
                     LEFT JOIN %1$selement_texts ON %1$selement_texts.record_id = %1$scollections.id
                     LEFT JOIN %1$selements ON %1$selements.id = %1$selement_texts.element_id
                 WHERE %1$selement_texts.record_type = \'Collection\'
-                AND %1$scollections.id = %2$s',
-                $p,
-                $itemSet['id']
+                AND %1$scollections.id = ?',
+                $p
             );
 
-            $stmt = $dumpConn->executeQuery($sql);
+            $stmt = $dumpConn->executeQuery($sql, [$itemSet['id']]);
             $propertyValues = $stmt->fetchAllAssociative();
 
             $itemSetData = [
@@ -409,7 +399,7 @@ class ImportFromDumpJob extends AbstractJob
                     }
 
                     $transformedProperty = [];
-                    if ($this->getArg('transform_uris')[$property['element_id']] == '1') {
+                    if (($this->getArg('transform_uris') ?? [])[$property['element_id']] == '1') {
                         $transformedProperty = $this->transformValue($property['text']);
                     }
 
@@ -424,7 +414,7 @@ class ImportFromDumpJob extends AbstractJob
                                 'is_public' => '1',
                                 '@annotation' => null,
                                 '@language' => '',
-                                '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
+                                '@value' => (($this->getArg('preserve_html') ?? [])[$property['element_id']] == '1') ?
                                             $property['text'] : $this->cleanTextFromHTML($property['text']),
                             ];
                         } else {
@@ -437,7 +427,7 @@ class ImportFromDumpJob extends AbstractJob
                                     ],
                                     $transformedProperty);
                             } else {
-                                $itemSetData[$term] =
+                                $itemSetData[$term][] =
                                 array_merge(
                                 [
                                     'property_id' => intval($propertyId),
@@ -469,7 +459,7 @@ class ImportFromDumpJob extends AbstractJob
                     $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingItemSet->id(),
                         $itemSetData);
 
-                    $this->stats['item_sets'] = $this->stats['item_sets'] ? $this->stats['item_sets'] + 1 : 1;
+                    $this->stats['item_sets'] = ($this->stats['item_sets'] ?? 0) + 1;
                 }
             }
 
@@ -486,7 +476,7 @@ class ImportFromDumpJob extends AbstractJob
                     ]
                 );
 
-                $this->stats['item_sets'] = $this->stats['item_sets'] ? $this->stats['item_sets'] + 1 : 1;
+                $this->stats['item_sets'] = ($this->stats['item_sets'] ?? 0) + 1;
             }
         }
 
@@ -503,6 +493,8 @@ class ImportFromDumpJob extends AbstractJob
         $p = $dumpManager->getTablePrefix();
         $dumpConn = $dumpManager->getConn();
 
+        $hasAltText = $dumpManager->hasColumn($p . 'files', 'alt_text');
+
         $sql = sprintf('SELECT * FROM %sitems', $p);
 
         $stmt = $dumpConn->executeQuery($sql);
@@ -515,25 +507,24 @@ class ImportFromDumpJob extends AbstractJob
                     LEFT JOIN %1$selement_texts ON %1$selement_texts.record_id = %1$sitems.id
                     LEFT JOIN %1$selements ON %1$selements.id = %1$selement_texts.element_id
                 WHERE %1$selement_texts.record_type = \'Item\'
-                AND %1$sitems.id = %2$s',
-                $p,
-                $item['id']
+                AND %1$sitems.id = ?',
+                $p
             );
 
-            $stmt = $dumpConn->executeQuery($sql);
+            $stmt = $dumpConn->executeQuery($sql, [$item['id']]);
             $propertyValues = $stmt->fetchAllAssociative();
 
+            $altTextCol = $hasAltText ? ', %1$sfiles.alt_text' : '';
             $sql = sprintf(
                 'SELECT %1$sfiles.id, %1$sfiles.mime_type, %1$sfiles.filename,
-                    %1$sfiles.original_filename, %1$sfiles.alt_text, %1$sfiles.size
+                    %1$sfiles.original_filename, %1$sfiles.size' . $altTextCol . '
                 FROM %1$sfiles
                 WHERE %1$sfiles.stored = 1
-                AND %1$sfiles.item_id = %2$s',
-                $p,
-                $item['id']
+                AND %1$sfiles.item_id = ?',
+                $p
             ); // @TODO check what happens when files.stored is 0.
 
-            $stmt = $dumpConn->executeQuery($sql);
+            $stmt = $dumpConn->executeQuery($sql, [$item['id']]);
             $files = $stmt->fetchAllAssociative();
 
             $itemData = [
@@ -555,12 +546,12 @@ class ImportFromDumpJob extends AbstractJob
                     [
                         'mapped_resource_name' => 'item_set',
                         'classic_resource_id' => $item['collection_id'],
-                        'o:job' => ['o:id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId()],
+                        'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
                     ]
                 )->getContent();
 
                 if (!empty($response)) {
-                    $itemData['o:item_set'] = [ strval($response[0]->resource()->id()) ];
+                    $itemData['o:item_set'] = [['o:id' => intval($response[0]->resource()->id())]];
                 }
             }
 
@@ -568,7 +559,7 @@ class ImportFromDumpJob extends AbstractJob
                 // only if the property is mapped
                 if (!empty($this->getArg('elements_properties')[$property['element_id']])) {
                     $transformedProperty = [];
-                    if ($this->getArg('transform_uris')[$property['element_id']] == '1') {
+                    if (($this->getArg('transform_uris') ?? [])[$property['element_id']] == '1') {
                         $transformedProperty = $this->transformValue($property['text']);
                     }
 
@@ -589,7 +580,7 @@ class ImportFromDumpJob extends AbstractJob
                                 'is_public' => '1',
                                 '@annotation' => null,
                                 '@language' => '',
-                                '@value' => ($this->getArg('preserve_html')[$property['element_id']] == '1') ?
+                                '@value' => (($this->getArg('preserve_html') ?? [])[$property['element_id']] == '1') ?
                                             $property['text'] : $this->cleanTextFromHTML($property['text']),
                             ];
                         } else {
@@ -602,7 +593,7 @@ class ImportFromDumpJob extends AbstractJob
                                     ],
                                     $transformedProperty);
                             } else {
-                                $itemData[$term] =
+                                $itemData[$term][] =
                                 array_merge(
                                 [
                                     'property_id' => intval($propertyId),
@@ -661,7 +652,7 @@ class ImportFromDumpJob extends AbstractJob
                     $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingItem->id(),
                         $itemData);
 
-                    $this->stats['items'] = $this->stats['items'] ? $this->stats['items'] + 1 : 1;
+                    $this->stats['items'] = ($this->stats['items'] ?? 0) + 1;
                 }
             }
 
@@ -677,7 +668,7 @@ class ImportFromDumpJob extends AbstractJob
                     ]
                 );
 
-                $this->stats['items'] = $this->stats['items'] ? $this->stats['items'] + 1 : 1;
+                $this->stats['items'] = ($this->stats['items'] ?? 0) + 1;
             }
         }
 
@@ -747,6 +738,16 @@ class ImportFromDumpJob extends AbstractJob
 
         if ($urlParsed === false || empty($urlParsed)) {
             return [];
+        }
+
+        if (empty($urlParsed['path']) || empty($urlParsed['host'])) {
+            return [
+                'type' => 'uri',
+                '@annotation' => null,
+                'o:lang' => '',
+                '@id' => $value,
+                'o:label' => $label,
+            ];
         }
 
         $urlPath = explode('/', $urlParsed['path']);
