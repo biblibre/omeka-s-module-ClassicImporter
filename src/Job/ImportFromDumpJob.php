@@ -115,12 +115,16 @@ class ImportFromDumpJob extends AbstractJob
             }
         }
 
+        $this->logClassicStats($dumpManager->getConn(), $p, $logger);
+
         try {
             $this->importResourcesFromDump($dumpManager, $properties, $resourceClasses);
         } catch (\Exception $e) {
             $logger->err(sprintf("Error: %s", $e->getMessage()));
             $this->hasErr = true;
         }
+
+        $this->logOmekaSStats($logger);
 
         $logger->info('Job ended');
 
@@ -816,6 +820,158 @@ class ImportFromDumpJob extends AbstractJob
           '@id' => $value,
           'o:label' => $label,
         ];
+    }
+
+    protected function logClassicStats(\Doctrine\DBAL\Connection $conn, string $p, $logger): void
+    {
+        try {
+            $collections = $conn->executeQuery(sprintf(
+                'SELECT SUM(public=1) AS public, SUM(public=0) AS private FROM %scollections', $p
+            ))->fetchAssociative();
+
+            $items = $conn->executeQuery(sprintf(
+                'SELECT SUM(public=1) AS public, SUM(public=0) AS private FROM %sitems', $p
+            ))->fetchAssociative();
+
+            $itemsWithMedia = $conn->executeQuery(sprintf(
+                'SELECT COUNT(DISTINCT item_id) FROM %sfiles WHERE stored = 1', $p
+            ))->fetchOne();
+
+            $totalItems = ($items['public'] ?? 0) + ($items['private'] ?? 0);
+            $itemsWithoutMedia = $totalItems - (int) $itemsWithMedia;
+
+            $totalMedia = $conn->executeQuery(sprintf(
+                'SELECT COUNT(*) FROM %sfiles WHERE stored = 1', $p
+            ))->fetchOne();
+
+            $properties = $conn->executeQuery(sprintf(
+                'SELECT es.name AS set_name, e.name AS elem_name, COUNT(et.id) AS cnt
+                FROM %selement_texts et
+                LEFT JOIN %selements e ON e.id = et.element_id
+                LEFT JOIN %selement_sets es ON es.id = e.element_set_id
+                GROUP BY e.id
+                ORDER BY es.name, e.name',
+                $p, $p, $p
+            ))->fetchAllAssociative();
+
+            $logger->info(sprintf(
+                '[Classic] Collections: %d public, %d private | Items: %d public, %d private | With media: %d, Without: %d | Media: %d',
+                $collections['public'] ?? 0,
+                $collections['private'] ?? 0,
+                $items['public'] ?? 0,
+                $items['private'] ?? 0,
+                $itemsWithMedia,
+                $itemsWithoutMedia,
+                $totalMedia
+            ));
+
+            $propLines = [];
+            foreach ($properties as $prop) {
+                $propLines[] = sprintf('%s > %s (%d)', $prop['set_name'], $prop['elem_name'], $prop['cnt']);
+            }
+            $logger->info('[Classic] Properties used: ' . implode(', ', $propLines));
+        } catch (\Exception $e) {
+            $logger->warn('Could not collect Classic stats: ' . $e->getMessage());
+        }
+    }
+
+    protected function logOmekaSStats($logger): void
+    {
+        try {
+            $api = $this->getServiceLocator()->get('Omeka\ApiManager');
+            $em  = $this->getServiceLocator()->get('Omeka\EntityManager');
+
+            $jobId = ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId();
+
+            $maps = $api->search('classicimporter_resource_maps', ['job_id' => $jobId])->getContent();
+
+            $itemIds    = [];
+            $itemSetIds = [];
+            foreach ($maps as $map) {
+                if ($map->mappedResourceName() === 'item') {
+                    $itemIds[] = $map->resource()->id();
+                } elseif ($map->mappedResourceName() === 'item_set') {
+                    $itemSetIds[] = $map->resource()->id();
+                }
+            }
+
+            $conn = $this->getServiceLocator()->get('Omeka\Connection');
+
+            // Item sets visibility — single grouped query
+            $isPublic = $isPrivate = 0;
+            if (!empty($itemSetIds)) {
+                $ph = implode(',', array_fill(0, count($itemSetIds), '?'));
+                $rows = $conn->fetchAllAssociative(
+                    "SELECT is_public, COUNT(*) AS cnt FROM resource WHERE id IN ($ph) GROUP BY is_public",
+                    $itemSetIds
+                );
+                foreach ($rows as $row) {
+                    $row['is_public'] ? $isPublic += $row['cnt'] : $isPrivate += $row['cnt'];
+                }
+            }
+
+            // Items visibility — single grouped query
+            $itPublic = $itPrivate = 0;
+            if (!empty($itemIds)) {
+                $ph = implode(',', array_fill(0, count($itemIds), '?'));
+                $rows = $conn->fetchAllAssociative(
+                    "SELECT is_public, COUNT(*) AS cnt FROM resource WHERE id IN ($ph) GROUP BY is_public",
+                    $itemIds
+                );
+                foreach ($rows as $row) {
+                    $row['is_public'] ? $itPublic += $row['cnt'] : $itPrivate += $row['cnt'];
+                }
+            }
+
+            // Items with/without media + total media — two grouped queries
+            $itWithMedia = $itWithoutMedia = $totalMedia = 0;
+            if (!empty($itemIds)) {
+                $ph = implode(',', array_fill(0, count($itemIds), '?'));
+                $totalMedia = (int) $conn->fetchOne(
+                    "SELECT COUNT(*) FROM media WHERE item_id IN ($ph)",
+                    $itemIds
+                );
+                $itWithMedia = (int) $conn->fetchOne(
+                    "SELECT COUNT(DISTINCT item_id) FROM media WHERE item_id IN ($ph)",
+                    $itemIds
+                );
+                $itWithoutMedia = count($itemIds) - $itWithMedia;
+            }
+
+            // Properties used — single grouped query
+            $propRows = [];
+            if (!empty($itemIds)) {
+                $ph = implode(',', array_fill(0, count($itemIds), '?'));
+                $propRows = $conn->fetchAllAssociative(
+                    "SELECT v.prefix, p.local_name, COUNT(val.id) AS cnt
+                    FROM value val
+                    LEFT JOIN property p ON p.id = val.property_id
+                    LEFT JOIN vocabulary v ON v.id = p.vocabulary_id
+                    WHERE val.resource_id IN ($ph)
+                    GROUP BY p.id
+                    ORDER BY v.prefix, p.local_name",
+                    $itemIds
+                );
+            }
+
+            $logger->info(sprintf(
+                '[Omeka S] Item sets: %d public, %d private | Items: %d public, %d private | With media: %d, Without: %d | Media: %d',
+                $isPublic, $isPrivate,
+                $itPublic, $itPrivate,
+                $itWithMedia, $itWithoutMedia,
+                $totalMedia
+            ));
+
+            $propLines = [];
+            foreach ($propRows as $row) {
+                $propLines[] = sprintf('%s:%s (%d)', $row['prefix'], $row['local_name'], $row['cnt']);
+            }
+            if ($propLines) {
+                $logger->info('[Omeka S] Properties used: ' . implode(', ', $propLines));
+            }
+        } catch (\Exception $e) {
+            $logger->warn('Could not collect Omeka S stats: ' . $e->getMessage());
+        }
     }
 
     protected function endJob()
