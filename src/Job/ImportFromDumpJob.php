@@ -249,6 +249,8 @@ class ImportFromDumpJob extends AbstractJob
     protected function importUrisFromDump()
     {
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
+        $api = $this->getServiceLocator()->get('Omeka\ApiManager');
+        $jobId = ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId();
 
         foreach ($this->propertiesToAddLater as $id => $properties) {
             if ($this->shouldStop()) {
@@ -256,66 +258,64 @@ class ImportFromDumpJob extends AbstractJob
                 return;
             }
 
+            // Resolve the source resource once per Classic resource id.
+            $resourceName = $properties[0]['resource_name'];
+            $matchingResource = $api->search('classicimporter_resource_maps',
+                [
+                    'mapped_resource_name' => $resourceName,
+                    'classic_resource_id' => $id,
+                    'job_id' => $jobId,
+                ]
+            )->getContent();
+
+            if (empty($matchingResource)) {
+                continue;
+            }
+
+            $omekaResourceId = $matchingResource[0]->resource()->id();
+
+            // Collect all resolved property values for this resource, grouped
+            // by term, so we can do a single API update call.
+            $resourceData = [];
+
             foreach ($properties as $property) {
                 if ($property['type'] != 'resource') {
                     continue;
                 }
-                $targetId = $property['value_resource_id'];
 
-                $propertyRep = $this->getServiceLocator()->get('Omeka\ApiManager')->read('properties', $id)->getContent();
+                $propertyId = $property['property_id'];
+                if (!isset($this->propertyTermCache[$propertyId])) {
+                    $this->propertyTermCache[$propertyId] = $api
+                        ->read('properties', $propertyId)
+                        ->getContent();
+                }
+                $propertyRep = $this->propertyTermCache[$propertyId];
                 if (empty($propertyRep)) {
                     continue;
                 }
-                $this->propertyTermCache[$id] = $propertyRep->term();
 
-                $matchingTargetResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
+                $term = $propertyRep->term();
+                $targetId = $property['value_resource_id'];
+
+                $matchingTargetResource = $api->search('classicimporter_resource_maps',
                     [
                         'mapped_resource_name' => $property['target_resource_name'],
                         'classic_resource_id' => $targetId,
-                        'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
+                        'job_id' => $jobId,
                     ]
                 )->getContent();
 
-                $matchingResource = $this->getServiceLocator()->get('Omeka\ApiManager')->search('classicimporter_resource_maps',
-                    [
-                        'mapped_resource_name' => $property['resource_name'],
-                        'classic_resource_id' => $id,
-                        'job_id' => ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId(),
-                    ]
-                )->getContent();
-
-                $mappedresourceName = $property['resource_name'];
-
-                if (!empty($matchingResource) && !empty($matchingTargetResource)) {
-                    unset($property['mapped_resource_name']);
-                    unset($property['o:label']);
-                    unset($property['@id']);
-                    $property['value_resource_id'] = $matchingTargetResource[0]->resource()->id();
-
-                    if ($mappedresourceName == 'item_set') {
-                        $this->clearResourcePropertyValues($matchingResource[0], $propertyRep);
-
-                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
-                        [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
-
-                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
-                    } elseif ($mappedresourceName == 'item') {
-                        $this->clearResourcePropertyValues($matchingResource[0], $propertyRep);
-
-                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
-                        [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
-
-                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
-                    } else {
-                        $logger = $this->getServiceLocator()->get('Omeka\Logger')->warn(
-                            sprintf('Invalid target resource type for URI : \'%s.\'', $mappedresourceName));
-                    }
-                }
-
-                // target resource is invalid so we just register it as a random url.
-                elseif (!empty($matchingResource)) {
-                    $property =
-                    [
+                if (!empty($matchingTargetResource)) {
+                    // Target resource was imported: build a clean resource link payload.
+                    $resourceData[$term][] = [
+                        'property_id' => $property['property_id'],
+                        'type'        => 'resource',
+                        'is_public'   => '1',
+                        'value_resource_id' => $matchingTargetResource[0]->resource()->id(),
+                    ];
+                } else {
+                    // Target resource not found: fall back to a plain URI.
+                    $resourceData[$term][] = [
                         'property_id' => $property['property_id'],
                         'is_public' => '1',
                         'type' => 'uri',
@@ -324,23 +324,24 @@ class ImportFromDumpJob extends AbstractJob
                         '@id' => $property['@id'],
                         'o:label' => $property['o:label'],
                     ];
-                    if ($mappedresourceName == 'item_set') {
-                        $this->clearResourcePropertyValues($matchingResource[0], $propertyRep);
-
-                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('item_sets', $matchingResource[0]->resource()->id(),
-                        [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
-
-                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
-                    } elseif ($mappedresourceName == 'item') {
-                        $this->clearResourcePropertyValues($matchingResource[0], $propertyRep);
-
-                        $this->getServiceLocator()->get('Omeka\ApiManager')->update('items', $matchingResource[0]->resource()->id(),
-                        [ $propertyRep->term() => [ $property ] ], [], ['isPartial' => true, 'collectionAction' => 'append']);
-
-                        $this->stats['uris'] = ($this->stats['uris'] ?? 0) + 1;
-                    }
                 }
             }
+
+            if (empty($resourceData)) {
+                continue;
+            }
+
+            // Single update call for all URI properties of this resource.
+            $apiResource = $resourceName === 'item_set' ? 'item_sets' : 'items';
+            $api->update(
+                $apiResource,
+                $omekaResourceId,
+                $resourceData,
+                [],
+                ['isPartial' => true, 'collectionAction' => 'append']
+            );
+
+            $this->stats['uris'] = ($this->stats['uris'] ?? 0) + count($resourceData);
         }
 
         if (!empty($this->propertiesToAddLater)) {
@@ -348,21 +349,7 @@ class ImportFromDumpJob extends AbstractJob
         }
     }
 
-    protected function clearResourcePropertyValues($resource, $property)
-    {
-        $em = $this->getServiceLocator()->get('Omeka\EntityManager');
 
-        $builder = $em->createQueryBuilder();
-        $builder->delete(\Omeka\Entity\Value::class, 'root')
-            ->where('root.resource = :resource_id')
-            ->andWhere('root.property = :property_id')
-            ->setParameter('resource_id', $resource->id())
-            ->setParameter('property_id', $property->id())
-            ->getQuery()
-            ->execute();
-
-        $em->flush();
-    }
 
     protected function importItemSetsFromDump($dumpManager, $properties, $resourceClasses)
     {
@@ -542,6 +529,18 @@ class ImportFromDumpJob extends AbstractJob
             $stmt = $dumpConn->executeQuery($sql, [$item['id']]);
             $files = $stmt->fetchAllAssociative();
 
+            $tags = [];
+            if ($this->getArg('tag_property')) {
+                $tagSql = sprintf(
+                    'SELECT t.name FROM %1$stags t
+                    INNER JOIN %1$srecords_tags rt ON rt.tag_id = t.id
+                    WHERE rt.record_id = ? AND rt.record_type = \'Item\'',
+                    $p
+                );
+                $tagStmt = $dumpConn->executeQuery($tagSql, [$item['id']]);
+                $tags = $tagStmt->fetchAllAssociative();
+            }
+
             $itemData = [
                 'o:is_public' => strval($item['public']),
 
@@ -618,6 +617,20 @@ class ImportFromDumpJob extends AbstractJob
                             }
                         }
                     }
+                }
+            }
+
+            if ($this->getArg('tag_property') && !empty($tags)) {
+                $tagTerm = $this->getPropertyTerm($this->getArg('tag_property'));
+                foreach ($tags as $tag) {
+                    $itemData[$tagTerm][] = [
+                        'property_id' => intval($this->getArg('tag_property')),
+                        'type' => 'literal',
+                        'is_public' => '1',
+                        '@annotation' => null,
+                        '@language' => '',
+                        '@value' => $tag['name'],
+                    ];
                 }
             }
 
@@ -699,11 +712,10 @@ class ImportFromDumpJob extends AbstractJob
             $this->propertyTermCache[$propertyId] = $this->getServiceLocator()
                 ->get('Omeka\ApiManager')
                 ->read('properties', $propertyId)
-                ->getContent()
-                ->term();
+                ->getContent();
         }
 
-        return $this->propertyTermCache[$propertyId];
+        return $this->propertyTermCache[$propertyId]->term();
     }
 
     protected function cleanTextFromHTML($text)
@@ -718,30 +730,28 @@ class ImportFromDumpJob extends AbstractJob
 
     protected function transformValue($value)
     {
-        // it's <a ... href="...." ...>...</a> ?
         $matches = [];
 
-        // black magic
-        $isHref = preg_match('/^<a\s+(?:[^>]*?\s+)?href="([^"]+)"[^>]*>([^<]*?)<\/a>$/', $value, $matches);
-
-        if ($isHref && count($matches) == 3) {
-            $label = $matches[2];
-            $url = $matches[1];
+        // Strategy 1: extract href from any <a href="..."> tag anywhere in the
+        // value, even when preceded by text or other HTML (e.g. "text: <br /><a href="url">...")
+        if (preg_match('/<a\s+(?:[^>]*?\s+)?href="([^"]+)"[^>]*>([^<]*?)<\/a>/i', $value, $matches)) {
+            $url   = $matches[1];
+            // Use the text content of the <a> as label, fall back to the
+            // stripped plain-text of the whole value if the anchor text is empty.
+            $label = trim($matches[2]) !== '' ? trim($matches[2]) : trim($this->cleanTextFromHTML($value));
             return $this->transformUrl($url, $label);
         }
 
-        $text = $this->cleanTextFromHTML($value);
-
-        // it's a link?
-        $words = explode(' ', $value);
-        $label = '';
-        if (count($words) > 1) {
-            $label = implode(' ', array_slice($words, 0, count($words) - 1));
-        }
-        $potentialUri = $words[count($words) - 1];
-
-        if (filter_var($potentialUri, FILTER_VALIDATE_URL)) {
-            return $this->transformUrl($potentialUri, $label);
+        // Strategy 2: the value is plain text; look for a URL token anywhere
+        // (not only as the last word) and use the remaining text as label.
+        $cleanText = $this->cleanTextFromHTML($value);
+        $words     = preg_split('/\s+/', $cleanText, -1, PREG_SPLIT_NO_EMPTY);
+        foreach ($words as $index => $word) {
+            if (filter_var($word, FILTER_VALIDATE_URL)) {
+                $remaining = array_merge(array_slice($words, 0, $index), array_slice($words, $index + 1));
+                $label     = trim(implode(' ', $remaining));
+                return $this->transformUrl($word, $label);
+            }
         }
 
         return [];
@@ -767,25 +777,32 @@ class ImportFromDumpJob extends AbstractJob
 
         $urlPath = explode('/', $urlParsed['path']);
 
-        if (count($urlPath) == 4 && $urlParsed['host'] == $this->getArg('domain_name') && $urlPath[2] == 'show') {
+        $classicId = $urlPath[3] ?? '';
+        if (
+            count($urlPath) == 4
+            && $urlParsed['host'] == $this->getArg('domain_name')
+            && $urlPath[2] == 'show'
+            && ctype_digit($classicId)
+            && (int) $classicId > 0
+        ) {
             switch ($urlPath[1]) {
                 case 'items':
                     return [
                         'type' => 'resource',
                         '@annotation' => null,
-                        'value_resource_id' => $urlPath[3],
+                        'value_resource_id' => $classicId,
                         'target_resource_name' => 'item',
-                        'o:label' => $label, // in case the item was not a valid id
-                        '@id' => $value, // same
+                        'o:label' => $label,
+                        '@id' => $value,
                     ];
                 case 'collections':
                     return [
                         'type' => 'resource',
                         '@annotation' => null,
-                        'value_resource_id' => $urlPath[3],
+                        'value_resource_id' => $classicId,
                         'target_resource_name' => 'item_set',
-                        'o:label' => $label, // same
-                        '@id' => $value, // same
+                        'o:label' => $label,
+                        '@id' => $value,
                     ];
                 default:
                     break;
