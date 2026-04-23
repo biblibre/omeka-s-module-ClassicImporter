@@ -13,7 +13,7 @@ class ResourceMapAdapter extends AbstractEntityAdapter
 {
     public function getResourceName()
     {
-        return 'classicimporter_resource_map';
+        return 'classicimporter_resource_maps';
     }
 
     public function getEntityClass()

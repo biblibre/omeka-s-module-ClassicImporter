@@ -83,7 +83,7 @@ $escapeHtml = $this->plugin('escapeHtml');
     </thead>
     <tbody>
         <?php foreach ($resourceClasses as $index => $resourceClass): ?>
-        </tr>
+        <tr>
             <td><?= $this->escapeHtml($resourceClass['name']); ?></td>
             <td><?= $this->escapeHtml($resourceClass['description']); ?></td>
             <td> 
