@@ -95,6 +95,19 @@ $escapeHtml = $this->plugin('escapeHtml');
 </table>
 <?php endif; ?>
 
+<?php
+    try {
+        $tagProperty = $form->get('tag_property');
+        if ($tagProperty) {
+            echo '<h2>' . $this->translate('Tags') . '</h2>';
+            echo $this->formRow($tagProperty);
+        }
+    }
+    catch (\Laminas\Form\Exception\InvalidArgumentException $e) {
+        // do nothing, it means tag_property was not added to the form. @TODO make this cleaner in the future.
+    }
+?>
+
 <?php echo $this->form()->closeTag($form); ?>
 
 <script>

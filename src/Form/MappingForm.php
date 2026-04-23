@@ -23,6 +23,8 @@ class MappingForm extends Form
             'type' => 'hidden',
         ]);
 
+
+
         $this->add([
             'name' => 'import_collections',
             'type' => OptionalCheckbox::class,
@@ -215,6 +217,9 @@ class MappingForm extends Form
         $this->get('domain_name')->setValue($domainName);
     }
 
+
+
+
     public function addCollectionsTreeCheckbox()
     {
         $this->add([
@@ -222,6 +227,23 @@ class MappingForm extends Form
             'type' => OptionalCheckbox::class,
             'options' => [
                 'label' => 'Import CollectionsTree\'s tree?', // @translate
+            ],
+        ]);
+    }
+
+    public function addTagMapping($api = null)
+    {
+        $this->add([
+            'name' => 'tag_property',
+            'type' => OptionalPropertySelect::class,
+            'options' => [
+                'label' => 'Map tags to property', // @translate
+                'info' => 'If set, tags from Omeka Classic will be imported as values of this property.', // @translate
+                'empty_option' => 'Do not import tags', // @translate
+            ],
+            'attributes' => [
+                'required' => false,
+                'multiple' => false,
             ],
         ]);
     }

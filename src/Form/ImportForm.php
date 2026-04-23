@@ -28,8 +28,12 @@ class ImportForm extends Form
             'name' => 'domain_name',
             'type' => 'text',
             'options' => [
-                'label' => 'What used to be the url of the Omeka Classic instance', // @translate
-                'info' => 'If you used to connect to \'https://myomeka.com/\', then put myomeka.com (or https://myomeka.com, it does not matter). It is only for text replacement purpose, it does not matter if the url still works anymore or not.', // @translate
+                'label' => 'URL of the old Omeka Classic instance', // @translate
+                'info' => 'e.g. omekaclassic.domain or https://omekaclassic.domain — used to detect internal links and convert them into relations between imported resources. The protocol and trailing slash are optional.', // @translate
+            ],
+            'attributes' => [
+                'required' => false,
+                'placeholder' => 'omekaclassic.domain',
             ],
         ]);
     }

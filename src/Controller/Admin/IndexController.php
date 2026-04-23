@@ -137,7 +137,7 @@ class IndexController extends AbstractActionController
         $form->addPropertyMappings($properties, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->addResourceClassMappings($resourceClasses, $this->serviceLocator->get('Omeka\ApiManager'));
         $form->setFilesSource($post['files_source']);
-        $form->setDomainName($post['domain_name']);
+        $form->setDomainName($post['domain_name'] ?? '');
 
         foreach ($tables as $table) {
             if (in_array($p . 'collection_trees', $table)) { // @todo add minimum version
@@ -146,6 +146,13 @@ class IndexController extends AbstractActionController
                 } else {
                     $this->messenger()->addWarning(sprintf('Dump database has a collections tree but Omeka-S does not have ItemSetsTree installed. Item sets tree will not be imported.'));
                 }
+                break;
+            }
+        }
+
+        foreach ($tables as $table) {
+            if (in_array($p . 'tags', $table)) {
+                $form->addTagMapping($this->serviceLocator->get('Omeka\ApiManager'));
                 break;
             }
         }
@@ -224,6 +231,13 @@ class IndexController extends AbstractActionController
             }
         }
 
+        foreach ($tables as $table) {
+            if (in_array($p . 'tags', $table)) {
+                $form->addTagMapping();
+                break;
+            }
+        }
+
         $form->setData($post);
         if (!$form->isValid()) {
             $this->messenger()->addFormErrors($form);
@@ -245,17 +259,19 @@ class IndexController extends AbstractActionController
         if (!empty($post['domain_name'])) {
             $post['domain_name'] = trim($post['domain_name']);
             if (str_contains($post['domain_name'], '://')) {
-                $domainName = explode('://', $post['domain_name']);
-                if (count($domainName) == 2) {
-                    $post['domain_name'] = trim($domainName[1], '/');
+                $parts = explode('://', $post['domain_name']);
+                if (count($parts) == 2) {
+                    $post['domain_name'] = trim($parts[1], '/');
                 } else {
-                    $this->messenger()->addError(sprintf('Given url \'%s\' for old omeka instance is invalid.', $post['domain_name'])); // @translate
+                    $this->messenger()->addError(sprintf('Given url \'%s\' for old Omeka Classic instance is invalid.', $post['domain_name'])); // @translate
                     return $this->redirect()->toRoute('admin/classicimporter');
                 }
             } else {
                 $post['domain_name'] = trim($post['domain_name'], '/');
             }
         }
+
+
 
         if (isset($post['updated_job_id'])) {
             $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
