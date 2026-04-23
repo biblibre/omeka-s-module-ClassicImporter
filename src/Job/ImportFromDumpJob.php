@@ -251,6 +251,11 @@ class ImportFromDumpJob extends AbstractJob
         $logger = $this->getServiceLocator()->get('Omeka\Logger');
 
         foreach ($this->propertiesToAddLater as $id => $properties) {
+            if ($this->shouldStop()) {
+                $logger->warn('Import stopped by user during URI import.'); // @translate
+                return;
+            }
+
             foreach ($properties as $property) {
                 if ($property['type'] != 'resource') {
                     continue;
@@ -371,6 +376,11 @@ class ImportFromDumpJob extends AbstractJob
         $itemSets = $stmt->fetchAllAssociative();
 
         foreach ($itemSets as $itemSet) {
+            if ($this->shouldStop()) {
+                $logger->warn('Import stopped by user during item sets import.'); // @translate
+                return;
+            }
+
             $sql = sprintf(
                 'SELECT %1$selement_texts.element_id, %1$selement_texts.text, %1$selements.name
                 FROM %1$scollections
@@ -501,6 +511,11 @@ class ImportFromDumpJob extends AbstractJob
         $items = $stmt->fetchAllAssociative();
 
         foreach ($items as $item) {
+            if ($this->shouldStop()) {
+                $logger->warn('Import stopped by user during items import.'); // @translate
+                return;
+            }
+
             $sql = sprintf(
                 'SELECT %1$selement_texts.element_id, %1$selement_texts.text, %1$selements.name
                 FROM %1$sitems
