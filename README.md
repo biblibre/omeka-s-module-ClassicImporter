@@ -14,47 +14,34 @@ Usage
 To use the module, you first need an Omeka (classic) instance of your choice, then you need to create a database dump from that.
 The module is not made to create the dump; the administrator needs to do it themselves.
 
-**Step 1 — Create the temporary database**
+**Step 1 — Configure the credentials**
 
-A dedicated MySQL database must be created to receive the Omeka Classic dump.
-Here is what the SQL commands should look like, to be executed as root:
-```bash
-sudo mysql -uroot
-[MySQL] > CREATE USER 'tempdb'@'%' IDENTIFIED BY 'password';
-[MySQL] > CREATE DATABASE tempdb;
-[MySQL] > GRANT ALL PRIVILEGES ON tempdb.* TO 'tempdb'@'%';
-```
-
-It is needed because the default Omeka-S user does not have enough permissions to do that.
-
-**Step 2 — Configure the credentials**
-
-Declare the temporary database credentials in `config/local.config.php` (not `module.config.php`, to keep secrets out of version control):
+Declare the Omeka Classic database credentials in `config/local.config.php` (not `module.config.php`, to keep secrets out of version control).
+The `table_prefix` key corresponds to the prefix configured in your Omeka Classic `db.ini` file (default is `omeka_`):
 ```php
     // This is in config/local.config.php
     'classicimporter' => [
         'tempdb_credentials' => [
-            "username" => "tempdb",
-            "password" => "password",
+            "username" => "my_user",
+            "password" => "my_password",
             "hostname" => "localhost",
-            "database" => "tempdb",
+            "database" => "my_omeka_classic_db",
+            "table_prefix" => "omeka_",
         ]
     ]
 ```
 
-**Step 3 — Load the dump into the temporary database**
-
-Because SQL dumps can be very large, the module does not load the dump file itself.
-The administrator must import it directly via the MySQL CLI:
+The Omeka S database user must have read access to the Omeka Classic database. If needed, grant it:
 ```bash
-mysql -u tempdb -ppassword -h localhost tempdb < /path/to/dump.sql
+sudo mysql -uroot
+[MySQL] > GRANT SELECT ON my_omeka_classic_db.* TO 'omeka_s_user'@'localhost';
 ```
 
-**Step 4 — Upload media files (optional)**
+**Step 2 — Upload media files (optional)**
 
 The media files contained in `omeka/files/original` must also be uploaded to the Omeka-S instance (anywhere Omeka-S can reach on disk) if you want media to be imported.
 
-**Step 5 — Run the import from the interface**
+**Step 3 — Run the import from the interface**
 
 In the "ClassicImporter" tab you will find a form with two optional fields:
 - **Path to the original media files** — leave empty to skip media import
@@ -80,17 +67,7 @@ Updating a previous import
 
 If you have already run an import and want to re-import from a refreshed dump (e.g. the source Omeka Classic database has changed), you can update the previously imported resources instead of creating duplicates.
 
-**Step 1** — Drop and reload the temporary database with the new dump:
-```bash
-# Drop all tables in the tempdb
-mysql -u tempdb -ppassword -h localhost tempdb -e "SET FOREIGN_KEY_CHECKS=0; $(mysql -u tempdb -ppassword -h localhost -N -e "SELECT GROUP_CONCAT('DROP TABLE IF EXISTS \`', table_name, '\`' SEPARATOR '; ') FROM information_schema.tables WHERE table_schema='tempdb';" 2>/dev/null); SET FOREIGN_KEY_CHECKS=1;"
-
-# Or more simply: drop and recreate the database
-sudo mysql -uroot -e "DROP DATABASE tempdb; CREATE DATABASE tempdb; GRANT ALL PRIVILEGES ON tempdb.* TO 'tempdb'@'%';"
-
-# Then reload the new dump
-mysql -u tempdb -ppassword -h localhost tempdb < /path/to/new_dump.sql
-```
+**Step 1** — The module reads directly from the live Omeka Classic database, so no reload is necessary. Simply ensure the Omeka Classic database is up to date before running the update.
 
 **Step 2** — In the **Past imports** tab, click **Update import** next to the import you wish to update. This will pre-fill the form with the parameters of the original import.
 
