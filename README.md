@@ -1,7 +1,7 @@
 ClassicImporter (module for Omeka S)
 ===============================
 
-[ClassicImporter] is a module for [Omeka S] and will allow an administrator to import item sets, items and media from a database dump of an Omeka Classic instance.
+[ClassicImporter] is a module for [Omeka S] and will allow an administrator to import item sets, items, media and tags from a live Omeka Classic database.
 
 Installation
 ------------
@@ -57,8 +57,13 @@ On the mapping screen:
 
 For each property, you may select **Clean HTML** to strip HTML tags from the property values. For example, if `dcterms:title` is `<strong>Hello!</strong>`, "Clean HTML" will only keep `Hello!`.
 
-For each property, you can also check **Map URIs**. This means that if a value contains a link to the old Omeka Classic instance (e.g. `https://my-omeka-classic.com/items/show/5`), the value will be converted into a link to the corresponding imported resource in Omeka-S. If unchecked, the link is kept as a plain URI.
-This option also converts values like `<a href="https://example.com">My link!</a>` into a proper URI value rather than raw HTML content.
+For each property, you can also check **Map URIs**. When checked, any value containing a URL is processed:
+- If the URL points to the old Omeka Classic instance (matching the URL provided in the form), it is converted into an internal **resource link** (`type: resource`) pointing to the corresponding imported resource in Omeka-S.
+- Any other URL is imported as a plain **URI value**, with the surrounding text used as label (e.g. `Notice du catalogue : http://example.com` becomes a URI with label `Notice du catalogue :`).
+- Values like `<a href="https://example.com">My link!</a>` are also handled and converted into a proper URI value.
+- If no URL is detected in the value and **Map URIs** is checked, the value is silently skipped — leave it unchecked for fields with mixed URL and plain-text values.
+
+In the **Tags** section at the bottom of the mapping screen, you can optionally select an Omeka-S property to map Omeka Classic tags to (e.g. `dcterms:subject`). If left empty, tags are not imported.
 
 Finally, if no errors occur, all imported resources will be available in your Omeka-S instance.
 
