@@ -865,11 +865,10 @@ class ImportFromDumpJob extends AbstractJob
                 $totalMedia
             ));
 
-            $propLines = [];
+            $logger->info('[Classic] Properties used:');
             foreach ($properties as $prop) {
-                $propLines[] = sprintf('%s > %s (%d)', $prop['set_name'], $prop['elem_name'], $prop['cnt']);
+                $logger->info(sprintf('  %s > %s (%d)', $prop['set_name'], $prop['elem_name'], $prop['cnt']));
             }
-            $logger->info('[Classic] Properties used: ' . implode(', ', $propLines));
         } catch (\Exception $e) {
             $logger->warn('Could not collect Classic stats: ' . $e->getMessage());
         }
@@ -962,12 +961,11 @@ class ImportFromDumpJob extends AbstractJob
                 $totalMedia
             ));
 
-            $propLines = [];
-            foreach ($propRows as $row) {
-                $propLines[] = sprintf('%s:%s (%d)', $row['prefix'], $row['local_name'], $row['cnt']);
-            }
-            if ($propLines) {
-                $logger->info('[Omeka S] Properties used: ' . implode(', ', $propLines));
+            if ($propRows) {
+                $logger->info('[Omeka S] Properties used:');
+                foreach ($propRows as $row) {
+                    $logger->info(sprintf('  %s:%s (%d)', $row['prefix'], $row['local_name'], $row['cnt']));
+                }
             }
         } catch (\Exception $e) {
             $logger->warn('Could not collect Omeka S stats: ' . $e->getMessage());
