@@ -262,7 +262,6 @@ class ImportFromDumpJob extends AbstractJob
                 return;
             }
 
-            // Resolve the source resource once per Classic resource id.
             $resourceName = $properties[0]['resource_name'];
             $matchingResource = $api->search('classicimporter_resource_maps',
                 [
@@ -278,8 +277,6 @@ class ImportFromDumpJob extends AbstractJob
 
             $omekaResourceId = $matchingResource[0]->resource()->id();
 
-            // Collect all resolved property values for this resource, grouped
-            // by term, so we can do a single API update call.
             $resourceData = [];
 
             foreach ($properties as $property) {
@@ -310,7 +307,6 @@ class ImportFromDumpJob extends AbstractJob
                 )->getContent();
 
                 if (!empty($matchingTargetResource)) {
-                    // Target resource was imported: build a clean resource link payload.
                     $resourceData[$term][] = [
                         'property_id' => $property['property_id'],
                         'type'        => 'resource',
@@ -318,7 +314,6 @@ class ImportFromDumpJob extends AbstractJob
                         'value_resource_id' => $matchingTargetResource[0]->resource()->id(),
                     ];
                 } else {
-                    // Target resource not found: fall back to a plain URI.
                     $resourceData[$term][] = [
                         'property_id' => $property['property_id'],
                         'is_public' => '1',
@@ -335,7 +330,6 @@ class ImportFromDumpJob extends AbstractJob
                 continue;
             }
 
-            // Single update call for all URI properties of this resource.
             $apiResource = $resourceName === 'item_set' ? 'item_sets' : 'items';
             $api->update(
                 $apiResource,
@@ -638,9 +632,7 @@ class ImportFromDumpJob extends AbstractJob
                 }
             }
 
-            // importing media is optional
             if (!empty($this->getArg('files_source'))) {
-                // intialization just in case
                 if (!empty($files)) {
                     $itemData['o:media'] = [];
                 }
@@ -896,7 +888,6 @@ class ImportFromDumpJob extends AbstractJob
 
             $conn = $this->getServiceLocator()->get('Omeka\Connection');
 
-            // Item sets visibility — single grouped query
             $isPublic = $isPrivate = 0;
             if (!empty($itemSetIds)) {
                 $ph = implode(',', array_fill(0, count($itemSetIds), '?'));
@@ -909,7 +900,6 @@ class ImportFromDumpJob extends AbstractJob
                 }
             }
 
-            // Items visibility — single grouped query
             $itPublic = $itPrivate = 0;
             if (!empty($itemIds)) {
                 $ph = implode(',', array_fill(0, count($itemIds), '?'));
@@ -922,7 +912,6 @@ class ImportFromDumpJob extends AbstractJob
                 }
             }
 
-            // Items with/without media + total media — two grouped queries
             $itWithMedia = $itWithoutMedia = $totalMedia = 0;
             if (!empty($itemIds)) {
                 $ph = implode(',', array_fill(0, count($itemIds), '?'));
@@ -937,7 +926,6 @@ class ImportFromDumpJob extends AbstractJob
                 $itWithoutMedia = count($itemIds) - $itWithMedia;
             }
 
-            // Properties used — single grouped query
             $propRows = [];
             if (!empty($itemIds)) {
                 $ph = implode(',', array_fill(0, count($itemIds), '?'));
