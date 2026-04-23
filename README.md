@@ -67,6 +67,34 @@ In the **Tags** section at the bottom of the mapping screen, you can optionally 
 
 Finally, if no errors occur, all imported resources will be available in your Omeka-S instance.
 
+Migration report
+----------------
+
+Before and after each import, the job automatically logs a migration report visible in the **Job log**. It includes:
+
+- Number of collections / item sets (public and private)
+- Number of items (public and private)
+- Number of items with and without media
+- Total number of media
+- List of properties used with their value count
+
+The report is logged twice: once from the Omeka Classic database (before import) and once from Omeka S (after import), so you can compare the two and verify the migration was complete.
+
+Example:
+
+```
+[Classic] Collections: 12 public, 3 private | Items: 1083 public, 47 private | With media: 892, Without: 238 | Media: 1204
+[Classic] Properties used:
+  Dublin Core > Creator (1847)
+  Dublin Core > Date (1102)
+  Dublin Core > Identifier (1130)
+[Omeka S] Item sets: 12 public, 3 private | Items: 1083 public, 47 private | With media: 892, Without: 238 | Media: 1204
+[Omeka S] Properties used:
+  dcterms:creator (1847)
+  dcterms:date (1102)
+  dcterms:identifier (1130)
+```
+
 Updating a previous import
 ---------------------------
 
