@@ -23,8 +23,6 @@ class MappingForm extends Form
             'type' => 'hidden',
         ]);
 
-
-
         $this->add([
             'name' => 'import_collections',
             'type' => OptionalCheckbox::class,
@@ -216,9 +214,6 @@ class MappingForm extends Form
     {
         $this->get('domain_name')->setValue($domainName);
     }
-
-
-
 
     public function addCollectionsTreeCheckbox()
     {

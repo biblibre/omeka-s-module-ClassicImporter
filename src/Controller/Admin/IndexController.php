@@ -271,8 +271,6 @@ class IndexController extends AbstractActionController
             }
         }
 
-
-
         if (isset($post['updated_job_id'])) {
             $updatedJob = $this->serviceLocator->get('Omeka\ApiManager')
                 ->search('classicimporter_imports', ['job_id' => $post['updated_job_id']])->getContent();

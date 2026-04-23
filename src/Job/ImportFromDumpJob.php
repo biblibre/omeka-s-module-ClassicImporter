@@ -309,8 +309,8 @@ class ImportFromDumpJob extends AbstractJob
                 if (!empty($matchingTargetResource)) {
                     $resourceData[$term][] = [
                         'property_id' => $property['property_id'],
-                        'type'        => 'resource',
-                        'is_public'   => '1',
+                        'type' => 'resource',
+                        'is_public' => '1',
                         'value_resource_id' => $matchingTargetResource[0]->resource()->id(),
                     ];
                 } else {
@@ -346,8 +346,6 @@ class ImportFromDumpJob extends AbstractJob
             $logger->info('URIs towards resources successfully imported.');
         }
     }
-
-
 
     protected function importItemSetsFromDump($dumpManager, $properties, $resourceClasses)
     {
@@ -731,7 +729,7 @@ class ImportFromDumpJob extends AbstractJob
         // Strategy 1: extract href from any <a href="..."> tag anywhere in the
         // value, even when preceded by text or other HTML (e.g. "text: <br /><a href="url">...")
         if (preg_match('/<a\s+(?:[^>]*?\s+)?href="([^"]+)"[^>]*>([^<]*?)<\/a>/i', $value, $matches)) {
-            $url   = $matches[1];
+            $url = $matches[1];
             // Use the text content of the <a> as label, fall back to the
             // stripped plain-text of the whole value if the anchor text is empty.
             $label = trim($matches[2]) !== '' ? trim($matches[2]) : trim($this->cleanTextFromHTML($value));
@@ -741,11 +739,11 @@ class ImportFromDumpJob extends AbstractJob
         // Strategy 2: the value is plain text; look for a URL token anywhere
         // (not only as the last word) and use the remaining text as label.
         $cleanText = $this->cleanTextFromHTML($value);
-        $words     = preg_split('/\s+/', $cleanText, -1, PREG_SPLIT_NO_EMPTY);
+        $words = preg_split('/\s+/', $cleanText, -1, PREG_SPLIT_NO_EMPTY);
         foreach ($words as $index => $word) {
             if (filter_var($word, FILTER_VALIDATE_URL)) {
                 $remaining = array_merge(array_slice($words, 0, $index), array_slice($words, $index + 1));
-                $label     = trim(implode(' ', $remaining));
+                $label = trim(implode(' ', $remaining));
                 return $this->transformUrl($word, $label);
             }
         }
@@ -870,13 +868,13 @@ class ImportFromDumpJob extends AbstractJob
     {
         try {
             $api = $this->getServiceLocator()->get('Omeka\ApiManager');
-            $em  = $this->getServiceLocator()->get('Omeka\EntityManager');
+            $em = $this->getServiceLocator()->get('Omeka\EntityManager');
 
             $jobId = ($this->getArg('update') == '1') ? $this->updatedJobId : $this->job->getId();
 
             $maps = $api->search('classicimporter_resource_maps', ['job_id' => $jobId])->getContent();
 
-            $itemIds    = [];
+            $itemIds = [];
             $itemSetIds = [];
             foreach ($maps as $map) {
                 if ($map->mappedResourceName() === 'item') {
